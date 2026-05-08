@@ -6,7 +6,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-public class ClientHandler {
+public class ClientHandler implements Runnable{
 
     private final Socket socket; // İstemcinin TCP soket bağlantısı
     private final BackgammonServer server;
@@ -29,6 +29,7 @@ public class ClientHandler {
 
     
     //bağlantı kopna kadar ya da hata oluşana kadar devam eder
+      @Override
     public void run() {
         try {
             // Çıkış akışını giriş akışından önce oluştur (deadlock önlemi)
@@ -96,12 +97,7 @@ public class ClientHandler {
                 }
                 break;
 
-            case CHAT:              
-                if (gameRoom != null) {
-                    gameRoom.broadcastChat(message); // sohbet mesajını yayınla
-                }
-                break;
-
+       
             case REMATCH_REQUEST:              
                 ServerLogger.log("Oyuncu " + playerID + " tekrar oynama istiyor.");  // Tekrar oynama talebi 
                 break;

@@ -14,7 +14,6 @@ public enum MessageType {
     HIT_PIECE, //taş kırıldı bara gönderildi
     BEAR_OFF, // oyuncu taşını topluyor
     GAME_OVER,
-    CHAT,
     ERROR,
     REMATCH_REQUEST, //yeni oyun
     REMATCH_ACCEPT, //karşı taraf yeni oyun istediğin kabul edince 

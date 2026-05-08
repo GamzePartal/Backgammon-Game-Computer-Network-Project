@@ -29,7 +29,8 @@ public class Player implements Serializable {
         this.piecesBorneOff = 0;
 
         // Renk bilgisine göre hareket yönünü otomatik belirle
-        // WHITE: sağdan sola (24→1), BLACK: soldan sağa (1→24)
+        // WHITE: sağdan sola hareket eder (24→1), evi sol altta 1-6 (indeks 0-5),  yön = -1
+        // BLACK: soldan sağa hareket eder (1→24), evi sağ üstte 19-24 (indeks 18-23), yön = +1
         this.direction = (color == WHITE) ? -1 : 1;
     }
 

@@ -47,7 +47,7 @@ public class GameRoom {
 
         // Oyuncuları bilgilendir
         active = true;
-        broadcastState();
+    
 
         // GAME_START mesajını gönder
         GameMessage startMsg = new GameMessage(MessageType.GAME_START, 0, gameState);
@@ -125,15 +125,14 @@ public class GameRoom {
             return;
         }
 
-        // taş toplama hamlesi mi
+        // Tüm hamleler movePiece üzerinden işlenir (bearing off dahil)
+        Player opponent = getOpponent(currentPlayer);
+        board.movePiece(from, to, currentPlayer, opponent, dice);
+
         if (to == -2) {
-            board.bearOff(from, currentPlayer, dieVal, dice);
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()+ " taşı topladı: " + (from + 1) + ". haneden");
+            ServerLogger.logGame(roomId, currentPlayer.getUsername() + " taşı topladı: " + (from + 1) + ". haneden");
         } else {
-            // Normal hamle veya bar hamlesi
-            Player opponent = getOpponent(currentPlayer);
-            board.movePiece(from, to, currentPlayer, opponent, dice);
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()+ " " + (from == -1 ? "bar" : (from + 1)) + " -> " + (to + 1));
+            ServerLogger.logGame(roomId, currentPlayer.getUsername() + " " + (from == -1 ? "bar" : (from + 1)) + " -> " + (to + 1));
         }
 
         // kazandı mı

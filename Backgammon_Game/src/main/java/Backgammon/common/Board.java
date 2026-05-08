@@ -1,4 +1,3 @@
-
 package Backgammon.common;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -22,20 +21,21 @@ public class Board implements Serializable{
     }
  
    
-    //standart tavla taşları dizimi
+    // Standart tavla başlangıç dizilimi
+    // WHITE: sağdan sola hareket eder, ev bölgesi 1-6 (indeks 0-5, sol alt)
+    // BLACK: soldan sağa hareket eder, ev bölgesi 19-24 (indeks 18-23, sağ üst)
     private void initBoard() {
-        
-        // white taşlar (renk = Player.WHITE = 1)
-        setPoint(0, 2, Player.WHITE);         
-        setPoint(11, 5, Player.WHITE); // 12. hanede 5 beyaz taş (indeks 11)
-        setPoint(16, 3, Player.WHITE);       
-        setPoint(18, 5, Player.WHITE);
- 
-        // black taşlar (renk = Player.BLACK = 2)
-        setPoint(23, 2, Player.BLACK); // 24. hanede 2 siyah taş (indeks 23)
-        setPoint(12, 5, Player.BLACK);
-        setPoint(7, 3, Player.BLACK);
-        setPoint(5, 5, Player.BLACK);
+        // WHITE taşlar (sağdan sola gider, evi solda 0-5)
+        setPoint(23, 2, Player.WHITE);  // hane 24: 2 beyaz
+        setPoint(12, 5, Player.WHITE);  // hane 13: 5 beyaz
+        setPoint(7,  3, Player.WHITE);  // hane  8: 3 beyaz
+        setPoint(5,  5, Player.WHITE);  // hane  6: 5 beyaz
+
+        // BLACK taşlar (soldan sağa gider, evi sağda 18-23)
+        setPoint(0,  2, Player.BLACK);  // hane  1: 2 siyah
+        setPoint(11, 5, Player.BLACK);  // hane 12: 5 siyah
+        setPoint(16, 3, Player.BLACK);  // hane 17: 3 siyah
+        setPoint(18, 5, Player.BLACK);  // hane 19: 5 siyah
     }
  
     //yalnızca initboard veya tahta sıfırlama için kullanılır
@@ -49,40 +49,89 @@ public class Board implements Serializable{
      public List<int[]> getAvailableMoves(Dice dice, Player player) {
         List<int[]> moves = new ArrayList<>();
         int color = player.getColor();
- 
+        boolean bearingOff = canBearOff(player);
+
         for (int dieVal : dice.getRemainingMoves()) {
- 
-            if (player.hasBarPiece()) { //barda taş varsa önce onu kullan
+
+            if (player.hasBarPiece()) { // barda taş varsa önce onu kullan
                 int target = getBarEntryPoint(dieVal, player);
                 if (target >= 0 && target < POINT_COUNT && points[target].isOpenFor(color)) {
-                    moves.add(new int[]{-1, target}); // -1 = bar
+                    // duplicate kontrolü
+                    boolean found = false;
+                    for (int[] m : moves) {
+                        if (m[0] == -1 && m[1] == target) { found = true; break; }
+                    }
+                    if (!found) moves.add(new int[]{-1, target});
                 }
             } else {
                 for (int i = 0; i < POINT_COUNT; i++) {
                     if (points[i].getOwner() != color || points[i].isEmpty()) continue;
- 
+
                     int target = i + (dieVal * player.getDirection());
- 
+
                     if (target >= 0 && target < POINT_COUNT && points[target].isOpenFor(color)) {
-                        moves.add(new int[]{i, target});
-                    } else if (canBearOff(player)) {
-                        moves.add(new int[]{i, -2}); // -2 = bearing off
+                        // duplicate kontrolü
+                        boolean found = false;
+                        for (int[] m : moves) {
+                            if (m[0] == i && m[1] == target) { found = true; break; }
+                        }
+                        if (!found) moves.add(new int[]{i, target});
+                    } else if (bearingOff) {
+                        // Taş toplama: zar değeri tam eşleşmeli ya da en uzak taşta büyük zar olabilir
+                        if (canBearOffFrom(i, dieVal, player)) {
+                            boolean found = false;
+                            for (int[] m : moves) {
+                                if (m[0] == i && m[1] == -2) { found = true; break; }
+                            }
+                            if (!found) moves.add(new int[]{i, -2});
+                        }
                     }
                 }
             }
         }
- 
+
         return moves;
+    }
+
+    
+    private boolean canBearOffFrom(int from, int dieVal, Player player) {
+        int color = player.getColor();
+        if (color == Player.WHITE) {
+            // WHITE ev: 0-5, çıkış sola. from=0 → dist=1, from=5 → dist=6
+            int distToExit = from + 1;
+            if (dieVal == distToExit) return true;
+            if (dieVal > distToExit) {
+                // Zar büyük: daha solda (daha düşük indeks) başka beyaz taş yok mu?
+                for (int i = from - 1; i >= 0; i--) {
+                    if (points[i].getOwner() == color && points[i].getCount() > 0) return false;
+                }
+                return true;
+            }
+        } else {
+            // BLACK ev: 18-23, çıkış sağa. from=23 → dist=1, from=18 → dist=6
+            int distToExit = POINT_COUNT - from; // 24 - from
+            if (dieVal == distToExit) return true;
+            if (dieVal > distToExit) {
+                // Zar büyük: daha sağda (daha yüksek indeks) başka siyah taş yok mu?
+                for (int i = from + 1; i < POINT_COUNT; i++) {
+                    if (points[i].getOwner() == color && points[i].getCount() > 0) return false;
+                }
+                return true;
+            }
+        }
+        return false;
     }
  
   
  
-     //Oyuncunun bardan gireceği hedef noktanın indeksini hesaplar
+    // Oyuncunun bardan gireceği hedef noktanın indeksini hesaplar
+    // WHITE sağdan girer (rakibin evi sağda = indeks 18-23): zar=1 → indeks 23
+    // BLACK soldan girer (rakibin evi solda = indeks 0-5):   zar=1 → indeks 0
     private int getBarEntryPoint(int dieVal, Player player) {
-        if (player.getColor() == Player.WHITE) {       
-            return POINT_COUNT - dieVal; // white karşı taraftan (24. noktadan) giriş yapar
+        if (player.getColor() == Player.WHITE) {
+            return POINT_COUNT - dieVal;  // zar=1 → indeks 23, zar=6 → indeks 18
         } else {
-            return dieVal - 1;  // black kendi tarafından (1. noktadan) giriş yapar
+            return dieVal - 1;            // zar=1 → indeks 0,  zar=6 → indeks 5
         }
     }
  
@@ -90,17 +139,27 @@ public class Board implements Serializable{
     //Belirli bir hamlenin from -> to geçerli olup olmadığına bakar Bar hamlesi için from = -1 kullanılır.
     public boolean isValidMove(int from, int to, Dice dice, Player player) {
         if (!dice.isRolled()) return false;
- 
-        if (to == -2) { 
-            return canBearOff(player);
+
+        // Barda taş varsa SADECE bar hamlesi yapılabilir
+        if (player.hasBarPiece() && from != -1) return false;
+
+        if (to == -2) {
+            if (!canBearOff(player)) return false;
+            if (from < 0 || from >= POINT_COUNT) return false;
+            if (points[from].getOwner() != player.getColor() || points[from].isEmpty()) return false;
+            for (int dieVal : dice.getRemainingMoves()) {
+                if (canBearOffFrom(from, dieVal, player)) return true;
+            }
+            return false;
         }
- 
-        if (to < 0 || to >= POINT_COUNT) return false;  // hedef tahta sınırları içinde olmalı
- 
-        if (!points[to].isOpenFor(player.getColor())) return false; // hedef nokta, oyuncuya açık olmalı
- 
+
+        if (to < 0 || to >= POINT_COUNT) return false;
+
+        if (!points[to].isOpenFor(player.getColor())) return false;
+
         if (from == -1) {
-            if (!player.hasBarPiece()) return false; 
+            if (!player.hasBarPiece()) return false;
+            // WHITE sağdan girer: zar = POINT_COUNT - to;  BLACK soldan girer: zar = to + 1
             int dieVal = (player.getColor() == Player.WHITE)
                     ? (POINT_COUNT - to)
                     : (to + 1);
@@ -109,8 +168,7 @@ public class Board implements Serializable{
             if (from < 0 || from >= POINT_COUNT) return false;
             if (points[from].getOwner() != player.getColor()) return false;
             if (points[from].isEmpty()) return false;
- 
-            // kullanılacak zar değeri mesafeye eşit olmalı
+
             int distance = Math.abs(to - from);
             return dice.canUse(distance);
         }
@@ -121,6 +179,21 @@ public class Board implements Serializable{
     //Belirtilen hamlede taşı kaynaktan hedefe taşır , bar hamlesi için from = -1 kullanılır.
     public void movePiece(int from, int to, Player movingPlayer, Player opponent, Dice dice) {
         int playerColor = movingPlayer.getColor();
+
+        if (to == -2) {
+            // Taş toplama hamlesi: uygun zar değerini bul ve kullan
+            int dieVal = -1;
+            for (int d : dice.getRemainingMoves()) {
+                if (canBearOffFrom(from, d, movingPlayer)) {
+                    dieVal = d;
+                    break;
+                }
+            }
+            points[from].removePiece();
+            movingPlayer.incrementBorneOff();
+            if (dieVal != -1) dice.useDie(dieVal);
+            return;
+        }
  
         // hedefte rakibin tek taşı varsa kırılır ve bara gönderilir
         if (!points[to].isEmpty() && points[to].getOwner() != playerColor && points[to].isBlot()) {
@@ -130,7 +203,8 @@ public class Board implements Serializable{
         // kaynaktan taş kaldır
         if (from == -1) {
             movingPlayer.decrementBar();
-            int dieVal = (playerColor == Player.WHITE) ? (POINT_COUNT - to): (to + 1);
+            // WHITE sağdan girer: zar = POINT_COUNT - to; BLACK soldan girer: zar = to + 1
+            int dieVal = (playerColor == Player.WHITE) ? (POINT_COUNT - to) : (to + 1);
             dice.useDie(dieVal);
         } else {
             points[from].removePiece();
@@ -158,27 +232,25 @@ public class Board implements Serializable{
     }
  
 
-    // oyuncu tüm taşları kendi bölgesine taşıdı mı toplamak için 
-    // white ın bölgesi noktalar 0-5 (1-6 arası), blackin bölgesi noktalar 18-23 (19-24 arası)
+    // WHITE ev bölgesi: indeks 0-5  (hane 1-6,   sol alt)
+    // BLACK ev bölgesi: indeks 18-23 (hane 19-24, sağ üst)
     public boolean canBearOff(Player player) {
         int color = player.getColor();
-   
-        if (player.hasBarPiece()) return false; // Barda taş varsa toplamayapılamaz
- 
+
+        if (player.hasBarPiece()) return false;
+
         if (color == Player.WHITE) {
+            // indeks 6-23 arasında beyaz taş varsa henüz toplayamaz
             for (int i = 6; i < POINT_COUNT; i++) {
-                if (points[i].getOwner() == Player.WHITE && points[i].getCount() > 0) {
-                    return false;
-                }
+                if (points[i].getOwner() == Player.WHITE && points[i].getCount() > 0) return false;
             }
         } else {
+            // indeks 0-17 arasında siyah taş varsa henüz toplayamaz
             for (int i = 0; i < 18; i++) {
-                if (points[i].getOwner() == Player.BLACK && points[i].getCount() > 0) {
-                    return false;
-                }
+                if (points[i].getOwner() == Player.BLACK && points[i].getCount() > 0) return false;
             }
         }
- 
+
         return true;
     }
  
