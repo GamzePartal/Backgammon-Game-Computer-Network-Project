@@ -39,7 +39,7 @@ public class BackgammonServer {
             acceptConnections();
 
         } catch (IOException e) {
-            ServerLogger.logError("Sunucu başlatılamadı: " + e.getMessage());
+            ServerLogger.logError("Sunucu baslatilamadi: " + e.getMessage());
         } finally {
             shutdown();
         }
@@ -49,7 +49,7 @@ public class BackgammonServer {
     //gelen istemci bağlantılarını sürekli kabul eder her yeni bağlantı için clienthandler oluşturur
     private void acceptConnections() {
        
-        ServerLogger.log("Bağlantı bekleniyor...");
+        ServerLogger.log("Baglanti bekleniyor...");
         while (running) {
             try {
                 
@@ -63,11 +63,11 @@ public class BackgammonServer {
                 clientThread.setDaemon(true); // sunucu kapanınca thread de kapansın
                 clientThread.start();
 
-                ServerLogger.logNetwork("Yeni bağlantı kabul edildi, Oyuncu ID: " + newPlayerID);
+                ServerLogger.logNetwork("Yeni baglanti kabul edildi, Oyuncu ID: " + newPlayerID);
 
             } catch (IOException e) {
                 if (running) {
-                    ServerLogger.logError("Bağlantı kabul hatası: " + e.getMessage());
+                    ServerLogger.logError("Baglanti kabul hatasi: " + e.getMessage());
                 }
                 // running = false ise sunucu kapatılıyor, döngüden çık
             }
@@ -94,7 +94,7 @@ public class BackgammonServer {
                 serverSocket.close();
             }
         } catch (IOException e) {
-            ServerLogger.logError("Sunucu soketi kapatılamadı: " + e.getMessage());
+            ServerLogger.logError("Sunucu soketi kapatilamadi: " + e.getMessage());
         }
     }
 
@@ -133,7 +133,7 @@ public class BackgammonServer {
             p1.setGameRoom(room); 
             p2.setGameRoom(room);
 
-            ServerLogger.log("Oyun odası oluşturuldu: " + roomId+ " (" + p1.getUsername() + " vs " + p2.getUsername() + ")");
+            ServerLogger.log("Oyun odasi olusturuldu: " + roomId+ " (" + p1.getUsername() + " vs " + p2.getUsername() + ")");
 
             // Oyunu ayrı thread'de başlat (initGame bloklamasın)
             final GameRoom finalRoom = room;
@@ -149,7 +149,7 @@ public class BackgammonServer {
         synchronized (connectedClients) {
             connectedClients.remove(handler);
         }
-        ServerLogger.logNetwork("Oyuncu " + handler.getPlayerID() + " listeden kaldırıldı. Kalan: " + connectedClients.size());
+        ServerLogger.logNetwork("Oyuncu " + handler.getPlayerID() + " listeden kaldirildi. Kalan: " + connectedClients.size());
     }
 
     
@@ -176,7 +176,7 @@ public class BackgammonServer {
             try {
                 port = Integer.parseInt(args[0]);
             } catch (NumberFormatException e) {
-                ServerLogger.logWarning("Geçersiz port: " + args[0] + " - Varsayılan port kullanılıyor: " + DEFAULT_PORT);
+                ServerLogger.logWarning("Gecersiz port: " + args[0] + " - Varsayilan port kullaniliyor: " + DEFAULT_PORT);
             }
         }
 

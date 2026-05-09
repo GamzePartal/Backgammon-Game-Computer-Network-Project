@@ -35,14 +35,14 @@ public class ClientHandler implements Runnable {
             inputStream = new ObjectInputStream(socket.getInputStream());
 
             running = true;
-            ServerLogger.logNetwork("Oyuncu " + playerID + " bağlandı: "
+            ServerLogger.logNetwork("Oyuncu " + playerID + " baglandi: "
                     + socket.getInetAddress().getHostAddress());
 
             server.onClientReady(this);
             startListening();
 
         } catch (IOException e) {
-            ServerLogger.logError("Oyuncu " + playerID + " akış hatası: " + e.getMessage());
+            ServerLogger.logError("Oyuncu " + playerID + " akis hatasi: " + e.getMessage());
         } finally {
             disconnect();
         }
@@ -57,7 +57,7 @@ public class ClientHandler implements Runnable {
                 }
             } catch (IOException e) {
                 if (running) {
-                    ServerLogger.logNetwork("Oyuncu " + playerID + " bağlantısı kesildi.");
+                    ServerLogger.logNetwork("Oyuncu " + playerID + " baglantisi kesildi.");
                 }
                 break;
             } catch (ClassNotFoundException e) {
@@ -67,7 +67,7 @@ public class ClientHandler implements Runnable {
     }
 
     private void handleMessage(GameMessage message) {
-        ServerLogger.log("Mesaj alındı [Oyuncu " + playerID + "]: " + message.getType());
+        ServerLogger.log("Mesaj alindi [Oyuncu " + playerID + "]: " + message.getType());
 
         switch (message.getType()) {
             case PLAYER_JOIN:
@@ -90,7 +90,7 @@ public class ClientHandler implements Runnable {
                 }
                 break;
             default:
-                ServerLogger.logWarning("İşlenemeyen mesaj tipi: " + message.getType());
+                ServerLogger.logWarning("Islenemeyen mesaj tipi: " + message.getType());
                 break;
         }
     }
@@ -99,7 +99,7 @@ public class ClientHandler implements Runnable {
         if (message.getData() instanceof String) {
             this.username = (String) message.getData();
         }
-        ServerLogger.log("Oyuncu " + playerID + " katıldı: " + username);
+        ServerLogger.log("Oyuncu " + playerID + " katildi: " + username);
     }
 
     public synchronized void sendMessage(GameMessage message) {
@@ -110,7 +110,7 @@ public class ClientHandler implements Runnable {
                 outputStream.reset();
             }
         } catch (IOException e) {
-            ServerLogger.logError("Oyuncu " + playerID + "'e mesaj gönderilemedi: " + e.getMessage());
+            ServerLogger.logError("Oyuncu " + playerID + "'e mesaj gonderilemedi: " + e.getMessage());
         }
     }
 
@@ -137,10 +137,10 @@ public class ClientHandler implements Runnable {
                 socket.close();
             }
         } catch (IOException e) {
-            ServerLogger.logError("Bağlantı kapatılamadı: " + e.getMessage());
+            ServerLogger.logError("Baglanti kapatilamadi: " + e.getMessage());
         }
 
-        ServerLogger.logNetwork("Oyuncu " + playerID + " bağlantısı temizlendi.");
+        ServerLogger.logNetwork("Oyuncu " + playerID + " baglantisi temizlendi.");
     }
 
     public void incrementWins() {

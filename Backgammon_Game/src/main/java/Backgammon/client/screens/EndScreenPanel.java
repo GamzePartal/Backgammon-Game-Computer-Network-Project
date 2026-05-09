@@ -17,7 +17,7 @@ public class EndScreenPanel extends JPanel {
     private JLabel  winnerLabel;
     private JLabel  marsLabel;
     private JLabel  winsLabel;
-    private JLabel  statusLabel;  
+    private JLabel  statusLabel;   // "Rakip bekleniyor..." mesajı
     private JButton playAgainButton;
     private JButton menuButton;
 
@@ -127,7 +127,7 @@ public class EndScreenPanel extends JPanel {
         add(contentPanel);
     }
 
-  
+   
     public void setResult(String winnerName, boolean isLocalWinner,
                           boolean isMars, int winnerWins) {
         // Tekrar oyna butonunu sıfırla
@@ -167,11 +167,15 @@ public class EndScreenPanel extends JPanel {
     
     public void showWaitingForRematch() {
         playAgainButton.setEnabled(false);
-        statusLabel.setText("Rakip kabul etti, yeni oyun başlıyor...");
+        statusLabel.setText("Rakip bekleniyor...");
     }
 
-  
+    
+    public void showWaitingForOpponent() {
+        statusLabel.setText("Rakip tekrar oynamak istiyor!");
+    }
 
+   
     private JButton createStyledButton(String text, Color normalColor,
                                        Color borderColor, Color hoverColor) {
         JButton button = new RoundedButton(text, 20);
@@ -204,8 +208,7 @@ public class EndScreenPanel extends JPanel {
         return button;
     }
 
-
-
+  
     private static class RoundedPanel extends JPanel {
         private final int radius;
         private Color backgroundColor;

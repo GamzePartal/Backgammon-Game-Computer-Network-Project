@@ -50,8 +50,8 @@ public class GameState implements Serializable {
         this.winner        = winner;
         this.mars          = mars;
         this.statusMessage = mars
-                ? winner.getUsername() + " MARS kazandı! (+2)"
-                : winner.getUsername() + " kazandı!";
+                ? winner.getUsername() + " MARS kazandi! (+2)"
+                : winner.getUsername() + " kazandi!";
     }
 
     public boolean isOngoing() { return !gameOver; }

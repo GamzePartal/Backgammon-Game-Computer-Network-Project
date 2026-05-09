@@ -41,18 +41,18 @@ public class ServerLogger {
    
     // ağ bağlantısıyla ilgili olayları yazdırır client bağlantısı,kopması vs 
     public static void logNetwork(String message) {
-        System.out.println(CYAN + "[AĞ]    " + getTimestamp() + " " + message + RESET);
+        System.out.println(CYAN + "[AG]    " + getTimestamp() + " " + message + RESET);
     }
 
     
     // sunucunun başarıyla başladığını kullancııya gösterir
     public static void logStartup(int port) {
         System.out.println(GREEN);
-        System.out.println(" TAVLA SUNUCUSU BAŞLATILIYOR ");
+        System.out.println(" TAVLA SUNUCUSU BASLATILIYOR ");
         System.out.println("");
         System.out.println(" Port    : " + port + " ");
         System.out.println(" Tarih   : " + getTimestamp());
-        System.out.println(" Durum   : Bağlantı bekleniyor");
+        System.out.println(" Durum   : Baglanti bekleniyor");
         System.out.println("");
         System.out.println(RESET);
     }
@@ -60,7 +60,7 @@ public class ServerLogger {
     
     //sunucu kapatıldığında konsola yazdırı
     public static void logShutdown() {
-        System.out.println(RED + "\n[KAPANIŞ] Sunucu kapatılıyor" + RESET);
+        System.out.println(RED + "\n[KAPANIS] Sunucu kapatiliyor" + RESET);
     }
 
     

@@ -97,23 +97,27 @@ public class Board implements Serializable{
     private boolean canBearOffFrom(int from, int dieVal, Player player) {
         int color = player.getColor();
         if (color == Player.WHITE) {
-            // WHITE ev: 0-5, çıkış sola. from=0 → dist=1, from=5 → dist=6
+            // WHITE ev: 0-5, çıkış sola (hareket yönü -1). 
+            // from=0 → dist=1, from=5 → dist=6
             int distToExit = from + 1;
             if (dieVal == distToExit) return true;
             if (dieVal > distToExit) {
-                // Zar büyük: daha solda (daha düşük indeks) başka beyaz taş yok mu?
-                for (int i = from - 1; i >= 0; i--) {
+                // Zar büyükse: daha geride (Beyaz için daha YÜKSEK indekslerde) taş olmamalıdır.
+                // Çünkü beyazlar 24'ten 1'e (indeks 23'ten 0'a) doğru ilerler.
+                for (int i = from + 1; i <= 5; i++) {
                     if (points[i].getOwner() == color && points[i].getCount() > 0) return false;
                 }
                 return true;
             }
         } else {
-            // BLACK ev: 18-23, çıkış sağa. from=23 → dist=1, from=18 → dist=6
+            // BLACK ev: 18-23, çıkış sağa (hareket yönü +1). 
+            // from=23 → dist=1, from=18 → dist=6
             int distToExit = POINT_COUNT - from; // 24 - from
             if (dieVal == distToExit) return true;
             if (dieVal > distToExit) {
-                // Zar büyük: daha sağda (daha yüksek indeks) başka siyah taş yok mu?
-                for (int i = from + 1; i < POINT_COUNT; i++) {
+                // Zar büyükse: daha geride (Siyah için daha DÜŞÜK indekslerde) taş olmamalıdır.
+                // Çünkü siyahlar 1'den 24'e (indeks 0'dan 23'e) doğru ilerler.
+                for (int i = from - 1; i >= 18; i--) {
                     if (points[i].getOwner() == color && points[i].getCount() > 0) return false;
                 }
                 return true;
@@ -169,6 +173,13 @@ public class Board implements Serializable{
             if (points[from].getOwner() != player.getColor()) return false;
             if (points[from].isEmpty()) return false;
 
+            // BUG FIX: Oyuncunun hareket yönünün tersine oynamadığından emin ol
+            // Beyaz (-1) ise to < from olmalı. Siyah (+1) ise to > from olmalı.
+            int direction = player.getDirection();
+            if ((to - from) * direction <= 0) {
+                return false; // Ters yöne (veya olduğu yere) hamle yapılamaz
+            }
+
             int distance = Math.abs(to - from);
             return dice.canUse(distance);
         }
@@ -182,13 +193,24 @@ public class Board implements Serializable{
 
         if (to == -2) {
             // Taş toplama hamlesi: uygun zar değerini bul ve kullan
-            int dieVal = -1;
+            // BUG FIX: Büyük zarı haksız yere harcamamak için önce tam mesafeye uyan zar (exactMatch) aranır.
+            int exactMatch = -1;
+            int largerMatch = -1;
+            int distToExit = (playerColor == Player.WHITE) ? (from + 1) : (POINT_COUNT - from);
+
             for (int d : dice.getRemainingMoves()) {
                 if (canBearOffFrom(from, d, movingPlayer)) {
-                    dieVal = d;
-                    break;
+                    if (d == distToExit) {
+                        exactMatch = d;
+                        break; // Tam eşleşme bulunduğunda hemen çık, en ideal zar budur.
+                    } else if (largerMatch == -1) {
+                        largerMatch = d; // Tam eşleşme yoksa kullanılacak yedek (daha büyük) zar.
+                    }
                 }
             }
+            
+            int dieVal = (exactMatch != -1) ? exactMatch : largerMatch;
+            
             points[from].removePiece();
             movingPlayer.incrementBorneOff();
             if (dieVal != -1) dice.useDie(dieVal);

@@ -304,10 +304,7 @@ public class BoardRenderer {
         }
     }
 
-    /**
-     * Bar'daki taşları tahta ortasındaki çubukta çizer.
-     * WHITE taşlar alt yarıdan yukarı, BLACK taşlar üst yarıdan aşağı istiflenır.
-     */
+   
     public void drawBarPieces(Graphics2D g2d, Player player1, Player player2) {
         if (player1 == null || player2 == null) return;
 
@@ -364,11 +361,8 @@ public class BoardRenderer {
         }
     }
 
-    /**
-     * Sağdaki kutularda bearing off (toplanan) taşları gösterir.
-     * WHITE taşlar alt kutuda, BLACK taşlar üst kutuda.
-     * Her kutuda taş simgeleri ve kaç toplandığı sayısı görünür.
-     */
+    
+   
     public void drawBorneOffTray(Graphics2D g2d, Player player1, Player player2) {
         if (player1 == null || player2 == null) return;
 
@@ -387,52 +381,53 @@ public class BoardRenderer {
                                   Color pieceColor, int count,
                                   boolean isWhite) {
 
-        // Kutu arka planı
-        g2d.setColor(new Color(30, 18, 6));
+        // Acik renkli arka plan
+        Color bgColor = isWhite
+                ? new Color(240, 225, 195, 220)   // krem/bej — beyaz taşlar için
+                : new Color(195, 175, 145, 220);  // orta kahve — siyah taşlar için
+        g2d.setColor(bgColor);
         g2d.fillRoundRect(x, y, width, height, 14, 14);
 
-        // Kenarlık — taş varsa yeşilimsi vurgu
+        // Kenarlık
         Color borderColor = count > 0
                 ? new Color(80, 180, 80)
-                : new Color(70, 50, 25);
+                : new Color(160, 130, 90);
         g2d.setColor(borderColor);
         g2d.setStroke(new BasicStroke(count > 0 ? 2.5f : 1.5f));
         g2d.drawRoundRect(x, y, width, height, 14, 14);
 
-        // Etiket
-        g2d.setFont(new Font("Arial", Font.BOLD, 9));
-        g2d.setColor(new Color(140, 200, 100));
-        FontMetrics fmL = g2d.getFontMetrics();
-        String lbl = "OFF";
-        int lblX = x + (width - fmL.stringWidth(lbl)) / 2;
-        g2d.drawString(lbl, lblX, isWhite ? y + 13 : y + height - 5);
-
-        // Taş sayısı büyük yazı
-        g2d.setFont(new Font("Arial", Font.BOLD, 22));
-        g2d.setColor(count > 0 ? new Color(120, 220, 120) : new Color(60, 50, 35));
-        FontMetrics fmNum = g2d.getFontMetrics();
-        String numStr = String.valueOf(count);
-        int numX = x + (width - fmNum.stringWidth(numStr)) / 2;
-        int numY = isWhite
-                ? y + height / 2 + 8
-                : y + height / 2 + 8;
-        g2d.drawString(numStr, numX, numY);
-
-        // Taş simgecikleri (max 5 tane, küçük)
-        int maxShow = Math.min(count, 5);
-        int smallSize = 14;
+        int smallSize = 16;
         int simX = x + (width - smallSize) / 2;
+        int padding = 8;
 
-        // Sayı metninin üstüne ya da altına sığdır
-        int simStartY = isWhite
-                ? y + 20
-                : y + 28;
+        // Taş simgeleri yukaridan asagi istifle
+        int maxShow = Math.min(count, 8);
+        int totalPiecesH = maxShow * smallSize + (maxShow > 0 ? (maxShow - 1) * 2 : 0);
+        // Sayac icin alt kisimda yer birak
+        int availH = height - padding * 2 - 22; // 22px sayac icin
+        if (totalPiecesH > availH) {
+            // Sigmazsa cakistir
+            maxShow = Math.min(count, 5);
+        }
 
+        int simStartY = y + padding;
         for (int i = 0; i < maxShow; i++) {
-            int simY = simStartY + i * (smallSize + 3);
-            if (simY + smallSize > y + height - 10) break;
+            int simY = simStartY + i * (smallSize + 2);
+            if (simY + smallSize > y + height - 26) break;
             drawSmallPiece(g2d, simX, simY, smallSize, pieceColor);
         }
+
+        // Sayac — kutunun alt kismi
+        String numStr = String.valueOf(count);
+        g2d.setFont(new Font("Arial", Font.BOLD, 18));
+        Color numColor = count > 0
+                ? new Color(30, 120, 30)
+                : new Color(120, 100, 70);
+        g2d.setColor(numColor);
+        FontMetrics fm = g2d.getFontMetrics();
+        int numX = x + (width - fm.stringWidth(numStr)) / 2;
+        int numY = y + height - 8;
+        g2d.drawString(numStr, numX, numY);
     }
 
     public void drawCapturedPieces(Graphics2D g2d, Player player1, Player player2) {
@@ -743,10 +738,7 @@ public class BoardRenderer {
                 && mouseY <= BOARD_Y + BOARD_HEIGHT;
     }
 
-    /**
-     * Oyuncunun kendi bar kutusuna tıklayıp tıklamadığını kontrol eder.
-     * WHITE taşlar alt kutuda, BLACK taşlar üst kutuda.
-     */
+    
     public boolean isTrayClicked(int mouseX, int mouseY, int playerColor) {
         int trayY = (playerColor == Player.WHITE) ? TRAY_BOT_Y : TRAY_TOP_Y;
         return mouseX >= TRAY_X

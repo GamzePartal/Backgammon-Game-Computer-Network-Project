@@ -45,8 +45,7 @@ public class ScreenManager {
         cardLayout.show(mainPanel, SCREEN_START);
     }
 
-
-    /** Ana menü: arkaplan müziğini durdur, bağlantıyı kes, başa dön. */
+  
     public void showStartScreen() {
         SoundManager.getInstance().stopBackground();
         if (client != null && client.isConnected()) {
@@ -66,7 +65,7 @@ public class ScreenManager {
         cardLayout.show(mainPanel, SCREEN_END);
     }
 
- 
+   
     public void requestRematch() {
         if (client != null && client.isConnected()) {
             client.sendRematchRequest();
@@ -74,6 +73,7 @@ public class ScreenManager {
         }
     }
 
+    
 
     public void onMessageReceived(GameMessage message) {
         SwingUtilities.invokeLater(() -> processMessage(message));
@@ -111,7 +111,9 @@ public class ScreenManager {
                 break;
 
             case WAITING:
-                endScreen.showWaitingForRematch();
+                // Yalnızca end screen görünüyorsa işle; game screen'deyken gelen
+                // stale WAITING mesajları görmezden gel
+                endScreen.showWaitingForOpponent();
                 break;
 
             default:
@@ -182,7 +184,7 @@ public class ScreenManager {
         });
     }
 
- 
+  
 
     public boolean connectToServer(String ip, int port, String username) {
         if (client != null && client.isConnected()) {
@@ -196,7 +198,6 @@ public class ScreenManager {
         return connected;
     }
 
- 
 
     public JPanel           getMainPanel()  { return mainPanel; }
     public BackgammonClient getClient()     { return client; }

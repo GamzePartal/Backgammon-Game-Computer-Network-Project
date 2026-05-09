@@ -35,10 +35,10 @@ public class BackgammonClient {
             outputStream.flush();
             inputStream  = new ObjectInputStream(socket.getInputStream());
             startListening();
-            System.out.println("[İSTEMCİ] Sunucuya bağlandı: " + ip + ":" + port);
+            System.out.println("[ISTEMCI] Sunucuya baglandi: " + ip + ":" + port);
             return true;
         } catch (IOException e) {
-            System.err.println("[İSTEMCİ] Bağlantı hatası: " + e.getMessage());
+            System.err.println("[ISTEMCI] Baglanti hatasi: " + e.getMessage());
             return false;
         }
     }
@@ -52,12 +52,12 @@ public class BackgammonClient {
                     if (message != null) handleServerMessage(message);
                 } catch (IOException e) {
                     if (listening) {
-                        System.err.println("[İSTEMCİ] Sunucu bağlantısı kesildi.");
+                        System.err.println("[ISTEMCI] Sunucu baglantisi kesildi.");
                         screenManager.onDisconnected();
                     }
                     break;
                 } catch (ClassNotFoundException e) {
-                    System.err.println("[İSTEMCİ] Bilinmeyen mesaj: " + e.getMessage());
+                    System.err.println("[ISTEMCI] Bilinmeyen mesaj: " + e.getMessage());
                 }
             }
         }, "ServerListener");
@@ -75,7 +75,7 @@ public class BackgammonClient {
                 outputStream.reset();
             }
         } catch (IOException e) {
-            System.err.println("[İSTEMCİ] Mesaj gönderilemedi: " + e.getMessage());
+            System.err.println("[ISTEMCI] Mesaj gonderilemedi: " + e.getMessage());
         }
     }
 
@@ -117,9 +117,9 @@ public class BackgammonClient {
             if (outputStream != null) outputStream.close();
             if (socket != null && !socket.isClosed()) socket.close();
         } catch (IOException e) {
-            System.err.println("[İSTEMCİ] Kapatma hatası: " + e.getMessage());
+            System.err.println("[ISTEMCI] Kapatma hatasi: " + e.getMessage());
         }
-        System.out.println("[İSTEMCİ] Bağlantı kapatıldı.");
+        System.out.println("[ISTEMCI] Baglanti kapatildi.");
     }
 
     public boolean isConnected() {

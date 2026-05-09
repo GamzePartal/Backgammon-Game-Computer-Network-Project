@@ -51,7 +51,6 @@ public class GameScreenPanel extends JPanel {
 
     private JButton rollDiceButton;
     private JButton menuButton;
-    private JButton undoButton;
 
     private JLabel statusLabel;
     private JLabel diceLabel;
@@ -71,6 +70,7 @@ public class GameScreenPanel extends JPanel {
         this.validTargets  = new ArrayList<>();
         initUI();
     }
+
 
 
     private void initUI() {
@@ -146,10 +146,6 @@ public class GameScreenPanel extends JPanel {
         rollDiceButton.setEnabled(false);
         rollDiceButton.addActionListener(e -> onRollDiceClicked());
 
-        undoButton = createStyledButton("Hamle Geri Al",  new Color(100, 80, 155));
-        undoButton.setEnabled(false);
-        undoButton.addActionListener(e -> onUndoClicked());
-
         menuButton = createStyledButton("Ana Menü",       new Color(145, 65, 55));
         menuButton.addActionListener(e -> onMenuClicked());
 
@@ -162,8 +158,6 @@ public class GameScreenPanel extends JPanel {
         centerControls.add(movesLabel);
         centerControls.add(Box.createVerticalStrut(12));
         centerControls.add(rollDiceButton);
-        centerControls.add(Box.createVerticalStrut(7));
-        centerControls.add(undoButton);
         centerControls.add(Box.createVerticalStrut(7));
         centerControls.add(menuButton);
         centerControls.add(Box.createVerticalGlue());
@@ -227,7 +221,7 @@ public class GameScreenPanel extends JPanel {
         return button;
     }
 
-    
+  
     public void initGame(GameState state, BackgammonClient client) {
         this.client    = client;
         this.gameState = state;
@@ -258,7 +252,7 @@ public class GameScreenPanel extends JPanel {
         showInitRollDialog(state);
     }
 
-
+    
     private void showInitRollDialog(GameState state) {
         int roll1 = state.getInitRollPlayer1();
         int roll2 = state.getInitRollPlayer2();
@@ -405,7 +399,7 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
-    
+ 
 
     public void onDiceResult(GameMessage message) {
         if (message.getData() instanceof GameState) {
@@ -436,12 +430,6 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
-    private void onUndoClicked() {
-        JOptionPane.showMessageDialog(this,
-                "Hamle geri alma özelliği yakında eklenecek.",
-                "Hamle Geri Al", JOptionPane.INFORMATION_MESSAGE);
-    }
-
     private void onMenuClicked() {
         int result = JOptionPane.showConfirmDialog(this,
                 "Oyundan çıkmak istediğinize emin misiniz?",
@@ -453,7 +441,7 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
-    
+
     private void onPointClicked(int pointIndex) {
         if (!myTurn || gameState == null || !gameState.isDiceRolled()) return;
 
@@ -579,7 +567,7 @@ public class GameScreenPanel extends JPanel {
         renderer.clearSelection();
     }
 
- 
+
 
     private class BoardPanel extends JPanel {
         public BoardPanel() {
@@ -617,8 +605,7 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
-   
-
+    
     private class PlayerCardPanel extends JPanel {
 
         private String  title;

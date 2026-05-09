@@ -6,17 +6,17 @@ import java.util.Random;
 
 public class GameRoom {
 
-    private final String roomId;
+    private final String        roomId;
     private final ClientHandler player1Handler;
     private final ClientHandler player2Handler;
-    private Player player1;
-    private Player player2;
-    private Board board;
-    private Dice dice;
+    private Player    player1;
+    private Player    player2;
+    private Board     board;
+    private Dice      dice;
     private GameState gameState;
-    private Player currentPlayer;
-    private Player waitingPlayer;
-    private boolean active;
+    private Player    currentPlayer;
+    private Player    waitingPlayer;
+    private boolean   active;
 
     private boolean player1WantsRematch = false;
     private boolean player2WantsRematch = false;
@@ -24,30 +24,37 @@ public class GameRoom {
     private static final Random RNG = new Random();
 
     public GameRoom(String roomId,
-            ClientHandler player1Handler,
-            ClientHandler player2Handler) {
-        this.roomId = roomId;
+                    ClientHandler player1Handler,
+                    ClientHandler player2Handler) {
+        this.roomId         = roomId;
         this.player1Handler = player1Handler;
         this.player2Handler = player2Handler;
-        this.active = false;
+        this.active         = false;
     }
 
-    public void initGame() {
-        ServerLogger.logGame(roomId, "Oyun başlatılıyor...");
+   
+
+    public synchronized void initGame() {
+        ServerLogger.logGame(roomId, "Oyun baslatiliyor...");
 
         player1WantsRematch = false;
         player2WantsRematch = false;
 
+        // Renk atamasini her oyunda rastgele belirle
+        boolean player1IsWhite = RNG.nextBoolean();
+        int color1 = player1IsWhite ? Player.WHITE : Player.BLACK;
+        int color2 = player1IsWhite ? Player.BLACK : Player.WHITE;
+
         player1 = new Player(player1Handler.getPlayerID(),
-                player1Handler.getUsername(), Player.WHITE);
+                             player1Handler.getUsername(), color1);
         player1.setWins(player1Handler.getWins());
 
         player2 = new Player(player2Handler.getPlayerID(),
-                player2Handler.getUsername(), Player.BLACK);
+                             player2Handler.getUsername(), color2);
         player2.setWins(player2Handler.getWins());
 
         board = new Board();
-        dice = new Dice();
+        dice  = new Dice();
 
         int roll1, roll2;
         do {
@@ -63,15 +70,15 @@ public class GameRoom {
             waitingPlayer = player1;
         }
 
-        ServerLogger.logGame(roomId, "Başlangıç zarı: "
+        ServerLogger.logGame(roomId, "Baslangic zari: "
                 + player1.getUsername() + "=" + roll1
                 + " | " + player2.getUsername() + "=" + roll2
-                + " → " + currentPlayer.getUsername() + " başlıyor!");
+                + " -> " + currentPlayer.getUsername() + " basliyor!");
 
         gameState = new GameState(board, currentPlayer, waitingPlayer, dice);
         gameState.setInitRollPlayer1(roll1);
         gameState.setInitRollPlayer2(roll2);
-        gameState.setStatusMessage(currentPlayer.getUsername() + " başlıyor!");
+        gameState.setStatusMessage(currentPlayer.getUsername() + " basliyor!");
 
         active = true;
 
@@ -79,18 +86,20 @@ public class GameRoom {
         player1Handler.sendMessage(startMsg);
         player2Handler.sendMessage(startMsg);
 
-        ServerLogger.logGame(roomId, "Oyun başladı! "
+        ServerLogger.logGame(roomId, "Oyun basladi! "
                 + player1.getUsername() + " (B) vs "
                 + player2.getUsername() + " (S)");
     }
 
-    public void rollDice(int playerID) {
+    
+
+    public synchronized void rollDice(int playerID) {
         if (!isPlayerTurn(playerID)) {
-            sendErrorTo(playerID, "Şu an sizin sıranız değil!");
+            sendErrorTo(playerID, "Su an sizin siraniz degil!");
             return;
         }
         if (gameState.isDiceRolled()) {
-            sendErrorTo(playerID, "Bu turda zaten zar attınız!");
+            sendErrorTo(playerID, "Bu turda zaten zar attiniz!");
             return;
         }
 
@@ -102,40 +111,41 @@ public class GameRoom {
 
         if (dice.isDoubles()) {
             ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " Çift zar attı: " + values[0] + "+" + values[0]);
+                    + " Cift zar atti: " + values[0] + "+" + values[0]);
         } else {
             ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " Zar attı: " + values[0] + "+" + values[1]);
+                    + " Zar atti: " + values[0] + "+" + values[1]);
         }
 
         if (moves.isEmpty()) {
             gameState.setStatusMessage(currentPlayer.getUsername()
-                    + " hamle yapamıyor, sıra geçiyor...");
+                    + " hamle yapamiyor, sira geciyor...");
             broadcastState();
             switchTurn();
             return;
         }
 
-        gameState.setStatusMessage(currentPlayer.getUsername() + " hamle yapıyor...");
+        gameState.setStatusMessage(currentPlayer.getUsername() + " hamle yapiyor...");
         broadcastState();
     }
 
-    public void processMove(GameMessage msg) {
+
+    public synchronized void processMove(GameMessage msg) {
         if (!isPlayerTurn(msg.getSenderID())) {
-            sendErrorTo(msg.getSenderID(), "Şu an sizin sıranız değil!");
+            sendErrorTo(msg.getSenderID(), "Su an sizin siraniz degil!");
             return;
         }
         if (!gameState.isDiceRolled()) {
-            sendErrorTo(msg.getSenderID(), "Önce zar atmanız gerekiyor!");
+            sendErrorTo(msg.getSenderID(), "Once zar atmaniz gerekiyor!");
             return;
         }
 
         int[] moveData = (int[]) msg.getData();
         int from = moveData[0];
-        int to = moveData[1];
+        int to   = moveData[1];
 
         if (!board.isValidMove(from, to, dice, currentPlayer)) {
-            sendErrorTo(msg.getSenderID(), "Geçersiz hamle!");
+            sendErrorTo(msg.getSenderID(), "Gecersiz hamle!");
             return;
         }
 
@@ -144,7 +154,7 @@ public class GameRoom {
 
         if (to == -2) {
             ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " taşı topladı: " + (from + 1) + ". haneden");
+                    + " tasi topladi: " + (from + 1) + ". haneden");
         } else {
             ServerLogger.logGame(roomId, currentPlayer.getUsername()
                     + " " + (from == -1 ? "bar" : (from + 1))
@@ -163,13 +173,15 @@ public class GameRoom {
             switchTurn();
         } else {
             gameState.setStatusMessage(currentPlayer.getUsername()
-                    + " devam ediyor (" + dice.getRemainingCount() + " hamle kaldı)");
+                    + " devam ediyor (" + dice.getRemainingCount() + " hamle kaldi)");
             broadcastState();
         }
     }
 
-    public void switchTurn() {
-        Player temp = currentPlayer;
+
+
+    public synchronized void switchTurn() {
+        Player temp   = currentPlayer;
         currentPlayer = waitingPlayer;
         waitingPlayer = temp;
 
@@ -178,52 +190,30 @@ public class GameRoom {
         gameState.setCurrentPlayer(currentPlayer);
         gameState.setWaitingPlayer(waitingPlayer);
         gameState.setAvailableMoves(null);
-        gameState.setStatusMessage(currentPlayer.getUsername() + "'in sırası - Zar atın!");
+        gameState.setStatusMessage(currentPlayer.getUsername() + "'in sirasi - Zar atin!");
 
-        ServerLogger.logGame(roomId, "Sıra geçti -> " + currentPlayer.getUsername());
+        ServerLogger.logGame(roomId, "Sira gecti -> " + currentPlayer.getUsername());
         broadcastState();
     }
 
     private boolean checkMars(Player loser) {
-        // Bar'da taş varsa zaten mars
-        if (loser.hasBarPiece()) {
-            ServerLogger.logGame(roomId, "Mars kontrolü: " + loser.getUsername()
-                    + " barda taşı var → MARS");
+        // BUG FIX: Mars koşulu rakibin taşı toplayıp toplamadığına göre kontrol edilmelidir.
+        if (loser.getPiecesBorneOff() == 0) {
+            ServerLogger.logGame(roomId, "Mars kontrolu: " + loser.getUsername()
+                    + " hic tas toplayamamis -> MARS");
             return true;
         }
 
-        Point[] points = board.getPoints();
-        int loserColor = loser.getColor();
-
-        if (loserColor == Player.WHITE) {
-            // WHITE'ın rakip evi: BLACK'in evi = indeks 18-23
-            for (int i = 18; i < 24; i++) {
-                if (points[i].getOwner() == loserColor && points[i].getCount() > 0) {
-                    ServerLogger.logGame(roomId, "Mars kontrolü: " + loser.getUsername()
-                            + " rakip evde (" + (i + 1) + ". hane) taşı var → MARS");
-                    return true;
-                }
-            }
-        } else {
-            // BLACK'ın rakip evi: WHITE'ın evi = indeks 0-5
-            for (int i = 0; i < 6; i++) {
-                if (points[i].getOwner() == loserColor && points[i].getCount() > 0) {
-                    ServerLogger.logGame(roomId, "Mars kontrolü: " + loser.getUsername()
-                            + " rakip evde (" + (i + 1) + ". hane) taşı var → MARS");
-                    return true;
-                }
-            }
-        }
-
-        ServerLogger.logGame(roomId, "Mars kontrolü: " + loser.getUsername()
-                + " mars yok (kendi evine taşımış)");
+        ServerLogger.logGame(roomId, "Mars kontrolu: " + loser.getUsername()
+                + " en az 1 tas toplamis -> mars yok");
         return false;
     }
 
-    public void endGame(Player winner) {
-        Player loser = getOpponent(winner);
+   
+    public synchronized void endGame(Player winner) {
+        Player loser  = getOpponent(winner);
         boolean isMars = checkMars(loser);
-        int winsToAdd = isMars ? 2 : 1;
+        int winsToAdd  = isMars ? 2 : 1;
 
         ClientHandler winnerHandler = (winner == player1) ? player1Handler : player2Handler;
         for (int i = 0; i < winsToAdd; i++) {
@@ -239,15 +229,16 @@ public class GameRoom {
         player2Handler.sendMessage(overMsg);
 
         if (isMars) {
-            ServerLogger.logGame(roomId, "OYUN BİTTİ! MARS! Kazanan: "
+            ServerLogger.logGame(roomId, "OYUN BITTI! MARS! Kazanan: "
                     + winner.getUsername()
                     + " (+2 galibiyet, toplam: " + winnerHandler.getWins() + ")");
         } else {
-            ServerLogger.logGame(roomId, "OYUN BİTTİ! Kazanan: "
+            ServerLogger.logGame(roomId, "OYUN BITTI! Kazanan: "
                     + winner.getUsername()
                     + " (+1 galibiyet, toplam: " + winnerHandler.getWins() + ")");
         }
     }
+
 
     public synchronized void handleRematchRequest(int playerID) {
         if (player1Handler.getPlayerID() == playerID) {
@@ -265,21 +256,23 @@ public class GameRoom {
         }
 
         if (player1WantsRematch && player2WantsRematch) {
-            ServerLogger.logGame(roomId, "Her iki oyuncu da rematch istedi. Yeni oyun başlıyor...");
+            ServerLogger.logGame(roomId, "Her iki oyuncu da rematch istedi. Yeni oyun basliyor...");
             Thread t = new Thread(this::initGame, "Rematch-" + roomId);
             t.setDaemon(true);
             t.start();
         }
     }
 
-    public void handleDisconnect(int disconnectedPlayerID) {
+ 
+
+    public synchronized void handleDisconnect(int disconnectedPlayerID) {
         active = false;
-        ServerLogger.logGame(roomId, "Oyuncu " + disconnectedPlayerID + " bağlantıyı kesti.");
+        ServerLogger.logGame(roomId, "Oyuncu " + disconnectedPlayerID + " baglantiyi kesti.");
 
         GameMessage discMsg = new GameMessage(
                 MessageType.PLAYER_DISCONNECT,
                 disconnectedPlayerID,
-                "Rakip bağlantıyı kesti."
+                "Rakip baglantiyi kesti."
         );
 
         if (player1Handler.getPlayerID() == disconnectedPlayerID) {
@@ -289,6 +282,7 @@ public class GameRoom {
         }
     }
 
+  
     public void broadcastState() {
         gameState.setBoard(board);
         gameState.setCurrentPlayer(currentPlayer);
@@ -299,6 +293,7 @@ public class GameRoom {
         player1Handler.sendMessage(updateMsg);
         player2Handler.sendMessage(updateMsg);
     }
+
 
     private void sendErrorTo(int playerID, String errorText) {
         GameMessage errMsg = new GameMessage(MessageType.ERROR, 0, errorText);
@@ -318,11 +313,6 @@ public class GameRoom {
                 && currentPlayer.getPlayerID() == playerID;
     }
 
-    public String getRoomId() {
-        return roomId;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
+    public String  getRoomId() { return roomId; }
+    public boolean isActive()  { return active; }
 }
