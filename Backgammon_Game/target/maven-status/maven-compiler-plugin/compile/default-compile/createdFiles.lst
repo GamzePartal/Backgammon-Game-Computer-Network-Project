@@ -3,6 +3,7 @@ Backgammon\common\GameState.class
 Backgammon\client\screens\GameScreenPanel$PlayerCardPanel.class
 Backgammon\server\ClientHandler.class
 Backgammon\client\screens\GameScreenPanel$BoardPanel$1.class
+Backgammon\client\SoundManager.class
 Backgammon\server\ClientHandler$1.class
 Backgammon\client\screens\GameScreenPanel.class
 Backgammon\common\MessageType.class

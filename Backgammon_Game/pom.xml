@@ -10,4 +10,13 @@
         <maven.compiler.release>17</maven.compiler.release>
         <exec.mainClass>com.mycompany.backgammon_game.Backgammon_Game</exec.mainClass>
     </properties>
+    
+       <dependencies>
+        <!-- MP3 çalmak için JLayer -->
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>mp3spi</artifactId>
+            <version>1.9.5.4</version>
+        </dependency>
+    </dependencies>
 </project>

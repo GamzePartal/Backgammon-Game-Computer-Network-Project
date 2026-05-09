@@ -180,11 +180,10 @@ public class BackgammonServer {
             }
         }
 
-        // JVM kapanırken temiz kapatma (Ctrl+C veya kill sinyali)
         BackgammonServer server = new BackgammonServer();
         Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown, "ShutdownHook"));
 
-        // serveri başlat
+ 
         server.start(port);
     }
 }

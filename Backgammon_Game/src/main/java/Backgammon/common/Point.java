@@ -1,4 +1,3 @@
-
 package Backgammon.common;
 import java.io.Serializable;
 

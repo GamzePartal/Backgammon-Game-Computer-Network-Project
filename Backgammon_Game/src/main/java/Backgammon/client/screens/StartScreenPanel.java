@@ -50,7 +50,7 @@ public class StartScreenPanel extends JPanel {
 
         JPanel contentPanel = new GlassPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBorder(new EmptyBorder(35, 65, 35, 65));
+       contentPanel.setBorder(new EmptyBorder(35, 65, 35, 65));
         contentPanel.setPreferredSize(new Dimension(640, 520));
 
         JLabel titleLabel = createTitleLabel();
