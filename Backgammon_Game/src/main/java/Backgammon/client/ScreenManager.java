@@ -9,6 +9,7 @@ import Backgammon.common.GameState;
 import javax.swing.*;
 import java.awt.*;
 
+
 public class ScreenManager {
 
     private final JFrame     mainFrame;
@@ -24,6 +25,9 @@ public class ScreenManager {
     private static final String SCREEN_START = "START";
     private static final String SCREEN_GAME  = "GAME";
     private static final String SCREEN_END   = "END";
+
+    // FIX 1: hangi ekranın aktif olduğunu takip et
+    private String currentScreen = SCREEN_START;
 
     public ScreenManager(JFrame mainFrame) {
         this.mainFrame  = mainFrame;
@@ -45,35 +49,35 @@ public class ScreenManager {
         cardLayout.show(mainPanel, SCREEN_START);
     }
 
-  
     public void showStartScreen() {
-        SoundManager.getInstance().stopBackground();
+        // Start screen'e dönünce müziği yeniden başlat (zaten çalıyorsa guard devreye girer)
+        SoundManager.getInstance().playBackground();
         if (client != null && client.isConnected()) {
             client.disconnect();
         }
         startScreen.reset();
+        currentScreen = SCREEN_START;
         cardLayout.show(mainPanel, SCREEN_START);
     }
 
     public void showGameScreen() {
+        currentScreen = SCREEN_GAME;
         cardLayout.show(mainPanel, SCREEN_GAME);
     }
 
     public void showEndScreen(String winnerName, boolean isLocalWinner,
                               boolean isMars, int winnerWins) {
         endScreen.setResult(winnerName, isLocalWinner, isMars, winnerWins);
+        currentScreen = SCREEN_END;
         cardLayout.show(mainPanel, SCREEN_END);
     }
 
-   
     public void requestRematch() {
         if (client != null && client.isConnected()) {
             client.sendRematchRequest();
             endScreen.showWaitingForRematch();
         }
     }
-
-    
 
     public void onMessageReceived(GameMessage message) {
         SwingUtilities.invokeLater(() -> processMessage(message));
@@ -111,9 +115,12 @@ public class ScreenManager {
                 break;
 
             case WAITING:
-                // Yalnızca end screen görünüyorsa işle; game screen'deyken gelen
-                // stale WAITING mesajları görmezden gel
-                endScreen.showWaitingForOpponent();
+                // FIX 1: WAITING mesajını yalnızca end screen aktifken işle.
+                // Oyun ekranındayken (örn. rematch kabul edildikten sonra)
+                // gelen stale WAITING mesajları görmezden gelinir.
+                if (SCREEN_END.equals(currentScreen)) {
+                    endScreen.showWaitingForOpponent();
+                }
                 break;
 
             default:
@@ -148,15 +155,21 @@ public class ScreenManager {
             int     winnerWins    = state.getWinner() != null
                     ? state.getWinner().getWins() : 0;
 
-            // Arkaplan müziğini durdur
+            // Önce background'u durdur, win sesini çal, sonra end screen'de tekrar başlat
             SoundManager.getInstance().stopBackground();
 
-            // Kazanan oyuncuya win sesi çal
             if (isLocalWinner) {
                 SoundManager.getInstance().playWin();
             }
 
             showEndScreen(winnerName, isLocalWinner, isMars, winnerWins);
+
+            // Win sesi bittikten sonra (yaklaşık 2-3sn) background'u yeniden başlat
+            // Böylece end screen'de de müzik çalar
+            new Thread(() -> {
+                try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+                SoundManager.getInstance().playBackground();
+            }, "BgRestart").start();
         }
     }
 
@@ -171,7 +184,7 @@ public class ScreenManager {
         JOptionPane.showMessageDialog(mainFrame,
                 "Rakibiniz oyundan ayrıldı. Ana menüye dönülüyor...",
                 "Bağlantı Kesildi", JOptionPane.WARNING_MESSAGE);
-        showStartScreen();
+        showStartScreen(); // showStartScreen içinde playBackground() çağrılıyor
     }
 
     public void onDisconnected() {
@@ -180,11 +193,9 @@ public class ScreenManager {
             JOptionPane.showMessageDialog(mainFrame,
                     "Sunucu bağlantısı kesildi!",
                     "Bağlantı Hatası", JOptionPane.ERROR_MESSAGE);
-            showStartScreen();
+            showStartScreen(); // showStartScreen içinde playBackground() çağrılıyor
         });
     }
-
-  
 
     public boolean connectToServer(String ip, int port, String username) {
         if (client != null && client.isConnected()) {
@@ -197,7 +208,6 @@ public class ScreenManager {
         }
         return connected;
     }
-
 
     public JPanel           getMainPanel()  { return mainPanel; }
     public BackgammonClient getClient()     { return client; }

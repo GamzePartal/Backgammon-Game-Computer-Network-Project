@@ -22,6 +22,7 @@ Backgammon\client\BoardRenderer.class
 Backgammon\client\screens\EndScreenPanel$RoundedButton.class
 Backgammon\client\screens\EndScreenPanel$RoundedPanel.class
 Backgammon\client\screens\EndScreenPanel.class
+Backgammon\client\screens\StartScreenPanel$2.class
 Backgammon\common\GameMessage.class
 Backgammon\common\Point.class
 Backgammon\client\screens\StartScreenPanel$RoundedTextField.class

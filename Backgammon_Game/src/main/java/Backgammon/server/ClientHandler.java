@@ -6,24 +6,25 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
+
 public class ClientHandler implements Runnable {
 
-    private final Socket socket;
+    private final Socket         socket;
     private final BackgammonServer server;
-    private ObjectInputStream inputStream;
-    private ObjectOutputStream outputStream;
-    private final int playerID;
-    private String username;
-    private GameRoom gameRoom;
-    private boolean running;
+    private ObjectInputStream    inputStream;
+    private ObjectOutputStream   outputStream;
+    private final int            playerID;
+    private String               username;
+    private GameRoom             gameRoom;
+    private volatile boolean     running;  // FIX: volatile ile diğer thread'lere görünür
 
     private int wins = 0;
 
     public ClientHandler(Socket socket, BackgammonServer server, int playerID) {
-        this.socket = socket;
-        this.server = server;
+        this.socket   = socket;
+        this.server   = server;
         this.playerID = playerID;
-        this.running = false;
+        this.running  = false;
         this.username = "Oyuncu" + playerID;
     }
 
@@ -34,6 +35,7 @@ public class ClientHandler implements Runnable {
             outputStream.flush();
             inputStream = new ObjectInputStream(socket.getInputStream());
 
+            // FIX 1: running bayrağını onClientReady'den ÖNCE set et
             running = true;
             ServerLogger.logNetwork("Oyuncu " + playerID + " baglandi: "
                     + socket.getInetAddress().getHostAddress());
@@ -84,7 +86,6 @@ public class ClientHandler implements Runnable {
                 }
                 break;
             case REMATCH_REQUEST:
-                // Bağlantıyı kesmeden aynı oda üzerinde yeni oyun talep et
                 if (gameRoom != null) {
                     gameRoom.handleRematchRequest(playerID);
                 }
@@ -127,15 +128,9 @@ public class ClientHandler implements Runnable {
         server.removeClient(this);
 
         try {
-            if (inputStream != null) {
-                inputStream.close();
-            }
-            if (outputStream != null) {
-                outputStream.close();
-            }
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
-            }
+            if (inputStream  != null) inputStream.close();
+            if (outputStream != null) outputStream.close();
+            if (socket != null && !socket.isClosed()) socket.close();
         } catch (IOException e) {
             ServerLogger.logError("Baglanti kapatilamadi: " + e.getMessage());
         }
@@ -143,31 +138,11 @@ public class ClientHandler implements Runnable {
         ServerLogger.logNetwork("Oyuncu " + playerID + " baglantisi temizlendi.");
     }
 
-    public void incrementWins() {
-        this.wins++;
-    }
-
-    public int getWins() {
-        return wins;
-    }
-
-    public int getPlayerID() {
-        return playerID;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public GameRoom getGameRoom() {
-        return gameRoom;
-    }
-
-    public void setGameRoom(GameRoom gameRoom) {
-        this.gameRoom = gameRoom;
-    }
-
-    public boolean isRunning() {
-        return running;
-    }
+    public void incrementWins()               { this.wins++; }
+    public int  getWins()                     { return wins; }
+    public int  getPlayerID()                 { return playerID; }
+    public String getUsername()               { return username; }
+    public GameRoom getGameRoom()             { return gameRoom; }
+    public void setGameRoom(GameRoom r)       { this.gameRoom = r; }
+    public boolean isRunning()                { return running; }
 }

@@ -1,22 +1,157 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.mycompany</groupId>
+    <groupId>Backgammon</groupId>
     <artifactId>Backgammon_Game</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0</version>
     <packaging>jar</packaging>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
-        <exec.mainClass>com.mycompany.backgammon_game.Backgammon_Game</exec.mainClass>
     </properties>
-    
-       <dependencies>
-        <!-- MP3 çalmak için JLayer -->
+
+    <!-- ─── Bağımlılıklar ─────────────────────────────────────────────── -->
+    <dependencies>
+        <!-- MP3 çalmak için JLayer (yalnızca client tarafında kullanılır) -->
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>jlayer</artifactId>
+            <version>1.0.1.4</version>
+        </dependency>
         <dependency>
             <groupId>com.googlecode.soundlibs</groupId>
             <artifactId>mp3spi</artifactId>
             <version>1.9.5.4</version>
         </dependency>
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>tritonus-share</artifactId>
+            <version>0.3.7.4</version>
+        </dependency>
     </dependencies>
+
+    <build>
+        <!--
+            Ses ve resim dosyaları src/main/resources/ altına taşınmalıdır:
+              src/main/resources/sounds/backround.mp3
+              src/main/resources/sounds/roll_dice.mp3
+              src/main/resources/sounds/button_press.mp3
+              src/main/resources/sounds/piece_hit.mp3
+              src/main/resources/sounds/win.mp3
+              src/main/resources/images/arkaplanfoto.jpg
+            Maven bunları otomatik olarak JAR içine koyar.
+        -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+
+        <plugins>
+
+            <!-- ── 1. Derleyici ──────────────────────────────────────── -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>17</release>
+                </configuration>
+            </plugin>
+
+            <!--
+                ── 2. CLIENT fat-JAR ────────────────────────────────────
+                Tüm bağımlılıkları (JLayer, mp3spi) içine gömer.
+                Oyuncular bu JAR'ı çalıştırır: java -jar backgammon-client.jar
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.1</version>
+                <executions>
+                    <execution>
+                        <id>client-jar</id>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <finalName>backgammon-client</finalName>
+                            <transformers>
+                                <transformer implementation=
+                                    "org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>Backgammon.client.MainApp</mainClass>
+                                </transformer>
+                                <!-- Ses servisi kayıtlarını birleştir (mp3spi için zorunlu) -->
+                                <transformer implementation=
+                                    "org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <!-- Server sınıflarını client JAR'ına dahil etme -->
+                            <excludes>
+                                <exclude>Backgammon/server/**</exclude>
+                            </excludes>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+
+                    <!--
+                        ── 3. SERVER fat-JAR ─────────────────────────────────
+                        Yalnızca common + server sınıfları içerir.
+                        Ses/resim bağımlılığı gerekmez.
+                        AWS EC2'de: java -jar backgammon-server.jar [port]
+                    -->
+                    <execution>
+                        <id>server-jar</id>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <finalName>backgammon-server</finalName>
+                            <transformers>
+                                <transformer implementation=
+                                    "org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>Backgammon.server.BackgammonServer</mainClass>
+                                </transformer>
+                            </transformers>
+                            <!-- Client sınıflarını ve ses kütüphanelerini server JAR'ına dahil etme -->
+                            <excludes>
+                                <exclude>Backgammon/client/**</exclude>
+                            </excludes>
+                            <!-- Ses kütüphanelerini server JAR'ından çıkar (gereksiz, boyutu şişirir) -->
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>com.googlecode.soundlibs:jlayer</exclude>
+                                    <exclude>com.googlecode.soundlibs:mp3spi</exclude>
+                                    <exclude>com.googlecode.soundlibs:tritonus-share</exclude>
+                                </excludes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+
 </project>

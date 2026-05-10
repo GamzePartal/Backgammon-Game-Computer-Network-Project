@@ -1,6 +1,7 @@
 package Backgammon.client.screens;
 
 import Backgammon.client.ScreenManager;
+import Backgammon.client.SoundManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -16,16 +17,17 @@ public class EndScreenPanel extends JPanel {
     private JLabel  resultLabel;
     private JLabel  winnerLabel;
     private JLabel  marsLabel;
-    private JLabel  winsLabel;
     private JLabel  statusLabel;   // "Rakip bekleniyor..." mesajı
     private JButton playAgainButton;
     private JButton menuButton;
 
-    private Image backgroundImage;
+    private final Image backgroundImage;
 
     public EndScreenPanel(ScreenManager screenManager) {
         this.screenManager = screenManager;
-        backgroundImage    = new ImageIcon("src/images/arkaplanfoto.jpg").getImage();
+        // Classpath'ten yükle — JAR içinde de çalışır
+        java.net.URL imgUrl = getClass().getResource("/images/arkaplanfoto.jpg");
+        backgroundImage = (imgUrl != null) ? new ImageIcon(imgUrl).getImage() : null;
         initUI();
     }
 
@@ -47,43 +49,38 @@ public class EndScreenPanel extends JPanel {
 
         RoundedPanel contentPanel = new RoundedPanel(28);
         contentPanel.setOpaque(false);
-        contentPanel.setBackgroundColor(new Color(225, 205, 170, 205));
-        contentPanel.setBorderColor(new Color(205, 180, 140, 220));
+        Color coffeeTone = new Color(111, 78, 55, 180); // Kahve tonu, hafif transparan
+        contentPanel.setBackgroundColor(coffeeTone);
+        contentPanel.setBorderColor(coffeeTone);
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBorder(new EmptyBorder(40, 90, 40, 90));
         contentPanel.setPreferredSize(new Dimension(590, 480));
 
         titleLabel = new JLabel("OYUN BİTTİ");
         titleLabel.setFont(new Font("Georgia", Font.BOLD, 40));
-        titleLabel.setForeground(new Color(85, 45, 15));
+        titleLabel.setForeground(new Color(245, 230, 210));
         titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         resultLabel = new JLabel(" ");
         resultLabel.setFont(new Font("Georgia", Font.BOLD, 30));
-        resultLabel.setForeground(new Color(25, 130, 40));
+        resultLabel.setForeground(new Color(100, 255, 100));
         resultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Mars etiketi — sadece mars olduğunda görünür
         marsLabel = new JLabel(" ");
         marsLabel.setFont(new Font("Georgia", Font.BOLD, 22));
-        marsLabel.setForeground(new Color(200, 80, 20));
+        marsLabel.setForeground(new Color(255, 180, 50));
         marsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         winnerLabel = new JLabel(" ");
         winnerLabel.setFont(new Font("Arial", Font.BOLD, 19));
-        winnerLabel.setForeground(new Color(50, 25, 10));
+        winnerLabel.setForeground(new Color(245, 230, 210));
         winnerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Kazananın toplam galibiyeti
-        winsLabel = new JLabel(" ");
-        winsLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        winsLabel.setForeground(new Color(30, 100, 180));
-        winsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         // Rematch bekleme mesajı
         statusLabel = new JLabel(" ");
         statusLabel.setFont(new Font("Arial", Font.ITALIC, 14));
-        statusLabel.setForeground(new Color(100, 70, 30));
+        statusLabel.setForeground(new Color(230, 200, 170));
         statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         playAgainButton = createStyledButton(
@@ -94,6 +91,7 @@ public class EndScreenPanel extends JPanel {
         );
         // Bağlantıyı kesmeden sunucuya rematch isteği gönder
         playAgainButton.addActionListener(e -> {
+            SoundManager.getInstance().playButtonClick();
             playAgainButton.setEnabled(false);
             statusLabel.setText("Rakip bekleniyor...");
             screenManager.requestRematch();
@@ -106,7 +104,10 @@ public class EndScreenPanel extends JPanel {
                 new Color(210, 70, 60)
         );
         // Ana menü: bağlantıyı kes ve başa dön
-        menuButton.addActionListener(e -> screenManager.showStartScreen());
+        menuButton.addActionListener(e -> {
+            SoundManager.getInstance().playButtonClick();
+            screenManager.showStartScreen();
+        });
 
         contentPanel.add(titleLabel);
         contentPanel.add(Box.createVerticalStrut(20));
@@ -115,14 +116,18 @@ public class EndScreenPanel extends JPanel {
         contentPanel.add(marsLabel);
         contentPanel.add(Box.createVerticalStrut(10));
         contentPanel.add(winnerLabel);
-        contentPanel.add(Box.createVerticalStrut(6));
-        contentPanel.add(winsLabel);
-        contentPanel.add(Box.createVerticalStrut(10));
+        contentPanel.add(Box.createVerticalStrut(16));
         contentPanel.add(statusLabel);
-        contentPanel.add(Box.createVerticalStrut(20));
-        contentPanel.add(playAgainButton);
-        contentPanel.add(Box.createVerticalStrut(12));
-        contentPanel.add(menuButton);
+        contentPanel.add(Box.createVerticalStrut(30));
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
+        buttonPanel.setOpaque(false);
+        buttonPanel.add(playAgainButton);
+        buttonPanel.add(Box.createHorizontalStrut(20));
+        buttonPanel.add(menuButton);
+
+        contentPanel.add(buttonPanel);
 
         add(contentPanel);
     }
@@ -137,31 +142,30 @@ public class EndScreenPanel extends JPanel {
         if (isLocalWinner) {
             if (isMars) {
                 resultLabel.setText("Tebrikler, MARS Kazandın!");
-                resultLabel.setForeground(new Color(200, 120, 0));
-                marsLabel.setText("🏆 Mars! +2 Galibiyet");
+                resultLabel.setForeground(new Color(255, 200, 50));
+                marsLabel.setText(" Mars! +2 Galibiyet");
                 titleLabel.setText("MARS!");
             } else {
                 resultLabel.setText("Tebrikler, Kazandın!");
-                resultLabel.setForeground(new Color(20, 135, 40));
+                resultLabel.setForeground(new Color(100, 255, 100));
                 marsLabel.setText(" ");
                 titleLabel.setText("OYUN BİTTİ");
             }
         } else {
             if (isMars) {
                 resultLabel.setText("Mars'a geldin!");
-                resultLabel.setForeground(new Color(180, 40, 35));
+                resultLabel.setForeground(new Color(255, 100, 100));
                 marsLabel.setText("Rakip +2 galibiyet aldı");
                 titleLabel.setText("MARS!");
             } else {
                 resultLabel.setText("Kaybettin.");
-                resultLabel.setForeground(new Color(180, 40, 35));
+                resultLabel.setForeground(new Color(255, 100, 100));
                 marsLabel.setText(" ");
                 titleLabel.setText("OYUN BİTTİ");
             }
         }
 
-        winnerLabel.setText("Kazanan: " + winnerName);
-        winsLabel.setText("Toplam Galibiyet: " + winnerWins);
+        winnerLabel.setText(" KAZANAN : " + winnerName.toUpperCase());
     }
 
     

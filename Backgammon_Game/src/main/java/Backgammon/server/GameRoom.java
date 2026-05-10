@@ -20,6 +20,7 @@ public class GameRoom {
 
     private boolean player1WantsRematch = false;
     private boolean player2WantsRematch = false;
+    private boolean rematchStarted      = false;
 
     private static final Random RNG = new Random();
 
@@ -32,15 +33,14 @@ public class GameRoom {
         this.active         = false;
     }
 
-   
-
     public synchronized void initGame() {
         ServerLogger.logGame(roomId, "Oyun baslatiliyor...");
 
         player1WantsRematch = false;
         player2WantsRematch = false;
+        rematchStarted      = false; // FIX 2: yeni oyun için bayrağı sıfırla
 
-        // Renk atamasini her oyunda rastgele belirle
+        // Renk atamasını her oyunda rastgele belirle
         boolean player1IsWhite = RNG.nextBoolean();
         int color1 = player1IsWhite ? Player.WHITE : Player.BLACK;
         int color2 = player1IsWhite ? Player.BLACK : Player.WHITE;
@@ -76,9 +76,17 @@ public class GameRoom {
                 + " -> " + currentPlayer.getUsername() + " basliyor!");
 
         gameState = new GameState(board, currentPlayer, waitingPlayer, dice);
-        gameState.setInitRollPlayer1(roll1);
-        gameState.setInitRollPlayer2(roll2);
         gameState.setStatusMessage(currentPlayer.getUsername() + " basliyor!");
+
+     
+        // Böylece client tarafında beyaz/siyah eşleştirmesi doğru yapılır
+        Player whitePlayer = player1IsWhite ? player1 : player2;
+        Player blackPlayer = player1IsWhite ? player2 : player1;
+        int rollForWhite   = player1IsWhite ? roll1 : roll2;
+        int rollForBlack   = player1IsWhite ? roll2 : roll1;
+
+        gameState.setInitRollPlayer1(rollForWhite); // Player1 slot = WHITE oyuncunun zarı
+        gameState.setInitRollPlayer2(rollForBlack); // Player2 slot = BLACK oyuncunun zarı
 
         active = true;
 
@@ -87,11 +95,8 @@ public class GameRoom {
         player2Handler.sendMessage(startMsg);
 
         ServerLogger.logGame(roomId, "Oyun basladi! "
-                + player1.getUsername() + " (B) vs "
-                + player2.getUsername() + " (S)");
+                + player1.getUsername() + " vs " + player2.getUsername());
     }
-
-    
 
     public synchronized void rollDice(int playerID) {
         if (!isPlayerTurn(playerID)) {
@@ -128,7 +133,6 @@ public class GameRoom {
         gameState.setStatusMessage(currentPlayer.getUsername() + " hamle yapiyor...");
         broadcastState();
     }
-
 
     public synchronized void processMove(GameMessage msg) {
         if (!isPlayerTurn(msg.getSenderID())) {
@@ -178,8 +182,6 @@ public class GameRoom {
         }
     }
 
-
-
     public synchronized void switchTurn() {
         Player temp   = currentPlayer;
         currentPlayer = waitingPlayer;
@@ -197,19 +199,16 @@ public class GameRoom {
     }
 
     private boolean checkMars(Player loser) {
-        // BUG FIX: Mars koşulu rakibin taşı toplayıp toplamadığına göre kontrol edilmelidir.
         if (loser.getPiecesBorneOff() == 0) {
             ServerLogger.logGame(roomId, "Mars kontrolu: " + loser.getUsername()
                     + " hic tas toplayamamis -> MARS");
             return true;
         }
-
         ServerLogger.logGame(roomId, "Mars kontrolu: " + loser.getUsername()
                 + " en az 1 tas toplamis -> mars yok");
         return false;
     }
 
-   
     public synchronized void endGame(Player winner) {
         Player loser  = getOpponent(winner);
         boolean isMars = checkMars(loser);
@@ -239,31 +238,33 @@ public class GameRoom {
         }
     }
 
-
     public synchronized void handleRematchRequest(int playerID) {
         if (player1Handler.getPlayerID() == playerID) {
             player1WantsRematch = true;
             ServerLogger.logGame(roomId, player1Handler.getUsername() + " rematch istiyor.");
-            GameMessage waitMsg = new GameMessage(MessageType.WAITING, 0,
-                    "Rakip tekrar oynamak istiyor, bekleniyor...");
-            player2Handler.sendMessage(waitMsg);
+            // Rakibe bildirim — sadece o daha istemediyse gönder
+            if (!player2WantsRematch) {
+                player2Handler.sendMessage(new GameMessage(
+                        MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor, bekleniyor..."));
+            }
         } else {
             player2WantsRematch = true;
             ServerLogger.logGame(roomId, player2Handler.getUsername() + " rematch istiyor.");
-            GameMessage waitMsg = new GameMessage(MessageType.WAITING, 0,
-                    "Rakip tekrar oynamak istiyor, bekleniyor...");
-            player1Handler.sendMessage(waitMsg);
+            if (!player1WantsRematch) {
+                player1Handler.sendMessage(new GameMessage(
+                        MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor, bekleniyor..."));
+            }
         }
 
-        if (player1WantsRematch && player2WantsRematch) {
+        // FIX 2: rematchStarted bayrağı ile çift başlatmayı önle
+        if (player1WantsRematch && player2WantsRematch && !rematchStarted) {
+            rematchStarted = true;
             ServerLogger.logGame(roomId, "Her iki oyuncu da rematch istedi. Yeni oyun basliyor...");
             Thread t = new Thread(this::initGame, "Rematch-" + roomId);
             t.setDaemon(true);
             t.start();
         }
     }
-
- 
 
     public synchronized void handleDisconnect(int disconnectedPlayerID) {
         active = false;
@@ -282,8 +283,8 @@ public class GameRoom {
         }
     }
 
-  
-    public void broadcastState() {
+    // FIX 1: synchronized eklendi — farklı thread'lerden çağrılıyor
+    public synchronized void broadcastState() {
         gameState.setBoard(board);
         gameState.setCurrentPlayer(currentPlayer);
         gameState.setWaitingPlayer(waitingPlayer);
@@ -293,7 +294,6 @@ public class GameRoom {
         player1Handler.sendMessage(updateMsg);
         player2Handler.sendMessage(updateMsg);
     }
-
 
     private void sendErrorTo(int playerID, String errorText) {
         GameMessage errMsg = new GameMessage(MessageType.ERROR, 0, errorText);

@@ -39,6 +39,9 @@ public class MainApp {
  
             // Pencereyi görünür yap
             frame.setVisible(true);
+
+            // Uygulama açılır açılmaz arkaplan müziğini başlat (start screen'den itibaren)
+            SoundManager.getInstance().playBackground();
  
             System.out.println("[UYGULAMA] Tavla istemcisi başlatıldı.");
         });

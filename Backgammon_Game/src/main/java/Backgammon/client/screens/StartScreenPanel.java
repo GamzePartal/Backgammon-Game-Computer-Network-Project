@@ -1,6 +1,7 @@
 package Backgammon.client.screens;
 
 import Backgammon.client.ScreenManager;
+import Backgammon.client.SoundManager;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -20,8 +21,13 @@ public class StartScreenPanel extends JPanel {
 
     private final ScreenManager screenManager;
 
-    private final Image backgroundImage =
-            new ImageIcon("src/images/arkaplanfoto.jpg").getImage();
+    // Classpath'ten yükle — JAR içinde de çalışır
+    private final Image backgroundImage = loadBackground();
+
+    private Image loadBackground() {
+        java.net.URL url = getClass().getResource("/images/arkaplanfoto.jpg");
+        return (url != null) ? new ImageIcon(url).getImage() : null;
+    }
 
     public StartScreenPanel(ScreenManager screenManager) {
         this.screenManager = screenManager;
@@ -94,7 +100,8 @@ public class StartScreenPanel extends JPanel {
         panel.setOpaque(false);
         panel.setMaximumSize(new Dimension(500, 175));
 
-        usernameField = createTextField("Oyuncu1");
+        usernameField = createTextField("");          // Boş — placeholder gösterilecek
+        addPlaceholder(usernameField, "İsminizi girin...");
         ipField = createTextField("127.0.0.1");
         portField = createTextField("5000");
 
@@ -122,8 +129,14 @@ public class StartScreenPanel extends JPanel {
                 new Color(175, 45, 40),
                 new Color(215, 65, 55));
 
-        connectButton.addActionListener(e -> onConnectClicked());
-        exitButton.addActionListener(e -> onExitClicked());
+        connectButton.addActionListener(e -> {
+            SoundManager.getInstance().playButtonClick();
+            onConnectClicked();
+        });
+        exitButton.addActionListener(e -> {
+            SoundManager.getInstance().playButtonClick();
+            onExitClicked();
+        });
 
         panel.add(connectButton);
         panel.add(exitButton);
@@ -152,6 +165,12 @@ public class StartScreenPanel extends JPanel {
         if (!validateInputs()) return;
 
         String username = usernameField.getText().trim();
+        // Placeholder metni yanlışlıkla geçtiyse engelle (validateInputs zaten yakalar ama güvenlik için)
+        if (username.equals("İsminizi girin...")) {
+            showStatus("Lütfen bir kullanıcı adı girin!", Color.RED);
+            return;
+        }
+
         String ip = ipField.getText().trim();
         int port;
 
@@ -209,8 +228,23 @@ public class StartScreenPanel extends JPanel {
     }
 
     private boolean validateInputs() {
-        if (usernameField.getText().trim().isEmpty()) {
+        String username = usernameField.getText().trim();
+
+        if (username.isEmpty() || username.equals("İsminizi girin...")) {
             showStatus("Kullanıcı adı boş bırakılamaz!", Color.RED);
+            usernameField.requestFocus();
+            return false;
+        }
+
+        if (username.length() < 2) {
+            showStatus("Kullanıcı adı en az 2 karakter olmalıdır!", Color.RED);
+            usernameField.requestFocus();
+            return false;
+        }
+
+        if (username.length() > 16) {
+            showStatus("Kullanıcı adı en fazla 16 karakter olabilir!", Color.RED);
+            usernameField.requestFocus();
             return false;
         }
 
@@ -237,9 +271,40 @@ public class StartScreenPanel extends JPanel {
                 new Color(255, 220, 120));
     }
 
+  
+    private void addPlaceholder(JTextField field, String placeholder) {
+        final Color placeholderColor = new Color(180, 160, 130, 180);
+        final Color activeColor      = new Color(255, 245, 225);
+
+        field.setText(placeholder);
+        field.setForeground(placeholderColor);
+
+        field.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                if (field.getText().equals(placeholder)) {
+                    field.setText("");
+                    field.setForeground(activeColor);
+                }
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                if (field.getText().trim().isEmpty()) {
+                    field.setText(placeholder);
+                    field.setForeground(placeholderColor);
+                }
+            }
+        });
+    }
+
     public void reset() {
         connectButton.setEnabled(true);
         showStatus(" ", Color.WHITE);
+        // Kullanıcı adı alanını placeholder'a döndür
+        final Color placeholderColor = new Color(180, 160, 130, 180);
+        usernameField.setText("İsminizi girin...");
+        usernameField.setForeground(placeholderColor);
     }
 
     private static class GlassPanel extends JPanel {

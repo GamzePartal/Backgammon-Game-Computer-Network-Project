@@ -17,11 +17,11 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+
 
 public class GameScreenPanel extends JPanel {
 
@@ -32,7 +32,6 @@ public class GameScreenPanel extends JPanel {
     private Player localPlayer;
     private Player remotePlayer;
 
-    // localPlayerID: initGame'de bir kez set edilir, sonraki güncellemelerde referans noktasıdır
     private int localPlayerID = -1;
 
     private BoardRenderer renderer;
@@ -44,7 +43,6 @@ public class GameScreenPanel extends JPanel {
 
     private boolean myTurn = false;
 
-    // Bar takibi: taş kırılma sesini tetiklemek için
     private int prevRemoteBarCount = 0;
 
     private BoardPanel boardPanel;
@@ -71,8 +69,6 @@ public class GameScreenPanel extends JPanel {
         initUI();
     }
 
-
-
     private void initUI() {
         loadBackgroundImage();
 
@@ -95,13 +91,13 @@ public class GameScreenPanel extends JPanel {
     private void loadBackgroundImage() {
         try {
             URL bgUrl = getClass().getResource("/images/arkaplanfoto.jpg");
-            if (bgUrl != null) { backgroundImage = ImageIO.read(bgUrl); return; }
-            File f1 = new File("src/images/arkaplanfoto.jpg");
-            if (f1.exists()) { backgroundImage = ImageIO.read(f1); return; }
-            File f2 = new File("src/main/resources/images/arkaplanfoto.jpg");
-            if (f2.exists()) { backgroundImage = ImageIO.read(f2); }
+            if (bgUrl != null) {
+                backgroundImage = ImageIO.read(bgUrl);
+            } else {
+                System.err.println("[UI] Arkaplan resmi bulunamadi: /images/arkaplanfoto.jpg");
+            }
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[UI] Arkaplan resmi yuklenemedi: " + e.getMessage());
         }
     }
 
@@ -142,11 +138,11 @@ public class GameScreenPanel extends JPanel {
         movesLabel.setForeground(new Color(240, 230, 210));
         movesLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        rollDiceButton = createStyledButton("Zar At",        new Color(75, 145, 70));
+        rollDiceButton = createStyledButton("Zar At",  new Color(75, 145, 70));
         rollDiceButton.setEnabled(false);
         rollDiceButton.addActionListener(e -> onRollDiceClicked());
 
-        menuButton = createStyledButton("Ana Menü",       new Color(145, 65, 55));
+        menuButton = createStyledButton("Ana Menü", new Color(145, 65, 55));
         menuButton.addActionListener(e -> onMenuClicked());
 
         JPanel centerControls = new JPanel();
@@ -221,7 +217,6 @@ public class GameScreenPanel extends JPanel {
         return button;
     }
 
-  
     public void initGame(GameState state, BackgammonClient client) {
         this.client    = client;
         this.gameState = state;
@@ -239,32 +234,34 @@ public class GameScreenPanel extends JPanel {
         localPlayerID = localPlayer.getPlayerID();
         client.setPlayerID(localPlayerID);
 
-        // Bar sayacını sıfırla
         prevRemoteBarCount = 0;
 
-        // Arkaplan müziğini başlat (rematch'te zaten çalıyorsa tekrar başlamaz)
         SoundManager.getInstance().playBackground();
 
         updatePlayerLabelsAndCards();
         updateBoard(state);
 
-        // Başlangıç zarlarını oyuncuya göster
         showInitRollDialog(state);
     }
 
     
     private void showInitRollDialog(GameState state) {
-        int roll1 = state.getInitRollPlayer1();
-        int roll2 = state.getInitRollPlayer2();
-        if (roll1 == 0 || roll2 == 0) return;
+        int rollWhite = state.getInitRollPlayer1(); // WHITE oyuncunun zarı
+        int rollBlack = state.getInitRollPlayer2(); // BLACK oyuncunun zarı
+        if (rollWhite == 0 || rollBlack == 0) return;
 
-        Player white = (state.getCurrentPlayer().getColor() == Player.WHITE)
-                ? state.getCurrentPlayer() : state.getWaitingPlayer();
-        Player black = (state.getCurrentPlayer().getColor() == Player.BLACK)
-                ? state.getCurrentPlayer() : state.getWaitingPlayer();
+        // Beyaz ve siyah oyuncuları bul
+        Player white, black;
+        if (state.getCurrentPlayer().getColor() == Player.WHITE) {
+            white = state.getCurrentPlayer();
+            black = state.getWaitingPlayer();
+        } else {
+            black = state.getCurrentPlayer();
+            white = state.getWaitingPlayer();
+        }
 
-        String whiteName   = white.getUsername();
-        String blackName   = black.getUsername();
+        String whiteName   = white != null ? white.getUsername() : "?";
+        String blackName   = black != null ? black.getUsername() : "?";
         String starterName = state.getCurrentPlayer().getUsername();
 
         JPanel panel = new JPanel();
@@ -272,7 +269,7 @@ public class GameScreenPanel extends JPanel {
         panel.setBackground(new Color(45, 28, 12));
         panel.setBorder(new EmptyBorder(18, 30, 18, 30));
 
-        JLabel title = new JLabel("🎲 Başlangıç Zar Atışı");
+        JLabel title = new JLabel("Başlangıç Zar Atışı");
         title.setFont(new Font("Georgia", Font.BOLD, 18));
         title.setForeground(new Color(255, 210, 80));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -281,12 +278,12 @@ public class GameScreenPanel extends JPanel {
         sep.setForeground(new Color(150, 110, 60));
         sep.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel whiteRow = new JLabel(String.format("⬜ %s   →   %d", whiteName, roll1));
+        JLabel whiteRow = new JLabel(String.format("⬜ %s   →   %d", whiteName, rollWhite));
         whiteRow.setFont(new Font("Arial", Font.BOLD, 16));
         whiteRow.setForeground(new Color(240, 235, 220));
         whiteRow.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel blackRow = new JLabel(String.format("⬛ %s   →   %d", blackName, roll2));
+        JLabel blackRow = new JLabel(String.format("⬛ %s   →   %d", blackName, rollBlack));
         blackRow.setFont(new Font("Arial", Font.BOLD, 16));
         blackRow.setForeground(new Color(200, 190, 175));
         blackRow.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -295,7 +292,7 @@ public class GameScreenPanel extends JPanel {
         sep2.setForeground(new Color(150, 110, 60));
         sep2.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        JLabel winner = new JLabel("🏆  " + starterName + " başlıyor!");
+        JLabel winner = new JLabel(starterName + " başlıyor!");
         winner.setFont(new Font("Georgia", Font.BOLD, 17));
         winner.setForeground(new Color(120, 230, 100));
         winner.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -325,7 +322,6 @@ public class GameScreenPanel extends JPanel {
         UIManager.put("OptionPane.messageForeground", null);
     }
 
-    
     public void updateBoard(GameState state) {
         this.gameState = state;
 
@@ -341,7 +337,6 @@ public class GameScreenPanel extends JPanel {
             }
         }
 
-        // Taş kırılma sesi: rakibin bar sayısı önceki duruma göre artmışsa
         if (remotePlayer != null) {
             int currentRemoteBar = remotePlayer.getPiecesOnBar();
             if (currentRemoteBar > prevRemoteBarCount) {
@@ -399,8 +394,6 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
- 
-
     public void onDiceResult(GameMessage message) {
         if (message.getData() instanceof GameState) {
             updateBoard((GameState) message.getData());
@@ -419,11 +412,8 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
-   
-
     private void onRollDiceClicked() {
         if (client != null && myTurn) {
-            // Zar atma sesi
             SoundManager.getInstance().playDiceRoll();
             client.sendRollDice();
             rollDiceButton.setEnabled(false);
@@ -435,13 +425,13 @@ public class GameScreenPanel extends JPanel {
                 "Oyundan çıkmak istediğinize emin misiniz?",
                 "Ana Menü", JOptionPane.YES_NO_OPTION);
         if (result == JOptionPane.YES_OPTION) {
-            // Ana menüye dönerken arkaplan müziğini durdur
+            SoundManager.getInstance().playButtonClick();
             SoundManager.getInstance().stopBackground();
             screenManager.showStartScreen();
         }
     }
 
-
+  
     private void onPointClicked(int pointIndex) {
         if (!myTurn || gameState == null || !gameState.isDiceRolled()) return;
 
@@ -449,13 +439,16 @@ public class GameScreenPanel extends JPanel {
         Dice  dice  = gameState.getDice();
         int   color = localPlayer.getColor();
 
+        // Barda taş varsa ve bar dışına tıklanmışsa uyar
         if (localPlayer.hasBarPiece() && pointIndex != -1 && selectedFromPoint != -1) {
             statusLabel.setText("Önce bardaki taşını oyna! Ortadaki bara tıkla.");
             return;
         }
 
+        // --- Henüz seçim yapılmamış ---
         if (selectedFromPoint == -2) {
             if (localPlayer.hasBarPiece()) {
+                // Bar hamlesi: kaynak = -1
                 selectedFromPoint = -1;
                 validTargets = calculateBarEntries(dice);
                 if (validTargets.isEmpty()) {
@@ -476,39 +469,49 @@ public class GameScreenPanel extends JPanel {
             return;
         }
 
+        // --- Seçili taşı hedefe gönder ---
         if (validTargets.contains(pointIndex)) {
             int dieVal = selectedFromPoint == -1
                     ? getBarEntryDieValue(pointIndex)
                     : Math.abs(pointIndex - selectedFromPoint);
-            // Taş hamlesi sesi
             SoundManager.getInstance().playPieceMove();
             client.sendMove(selectedFromPoint, pointIndex, dieVal);
             clearSelection();
 
         } else if (validTargets.contains(-2) && pointIndex == selectedFromPoint) {
+            // Tray tıklaması: seçili taşa tekrar tıklanarak taş toplama
             int dieVal = findBearingOffDieValue(selectedFromPoint, dice);
-            // Taş toplama sesi (aynı hamle sesi)
             SoundManager.getInstance().playPieceMove();
             client.sendMove(selectedFromPoint, -2, dieVal);
             clearSelection();
 
         } else if (pointIndex == selectedFromPoint) {
+            // Aynı taşa tekrar tıklama: seçimi iptal et
             clearSelection();
 
         } else {
+            // FIX 2: Başka bir noktaya tıklandı — recursive yerine düz akış
+            // Seçimi temizle ve yeni seçim yap (eğer o noktada bizim taşımız varsa)
             clearSelection();
-            onPointClicked(pointIndex);
-            return;
+            if (pointIndex >= 0 && pointIndex < Board.POINT_COUNT) {
+                Point p = board.getPoint(pointIndex);
+                if (p != null && p.getOwner() == color && !p.isEmpty()) {
+                    selectedFromPoint = pointIndex;
+                    validTargets = calculateTargetsFor(pointIndex, dice);
+                    renderer.setSelectedPoint(selectedFromPoint);
+                    renderer.setHighlightedPoints(validTargets);
+                }
+            }
         }
 
         boardPanel.repaint();
     }
 
     private int findBearingOffDieValue(int from, Dice dice) {
+        int dist = (localPlayer.getColor() == Player.WHITE)
+                ? from + 1
+                : Board.POINT_COUNT - from;
         for (int dieVal : dice.getRemainingMoves()) {
-            int dist = (localPlayer.getColor() == Player.WHITE)
-                    ? from + 1
-                    : Board.POINT_COUNT - from;
             if (dieVal == dist || dieVal > dist) return dieVal;
         }
         return dice.getRemainingMoves().isEmpty() ? 0 : dice.getRemainingMoves().get(0);
@@ -594,18 +597,29 @@ public class GameScreenPanel extends JPanel {
                     gameState.getCurrentPlayer(), gameState.getWaitingPlayer());
         }
 
+        
         private void handleBoardClick(int x, int y) {
-            if (localPlayer != null && localPlayer.hasBarPiece()
-                    && renderer.isBarClicked(x, y)) {
+            if (localPlayer == null) return;
+
+            // Bar tıklaması: barda taş varsa
+            if (localPlayer.hasBarPiece() && renderer.isBarClicked(x, y)) {
                 onPointClicked(-1);
                 return;
             }
+
+            // Tray tıklaması: taş toplama modundaysa ve seçili taş varsa
+            if (selectedFromPoint >= 0
+                    && renderer.isTrayClicked(x, y, localPlayer.getColor())
+                    && validTargets.contains(-2)) {
+                onPointClicked(selectedFromPoint); // -2 hedefine yönlendir
+                return;
+            }
+
             int pointIndex = renderer.getPointIndexAt(x, y);
             if (pointIndex >= 0) onPointClicked(pointIndex);
         }
     }
 
-    
     private class PlayerCardPanel extends JPanel {
 
         private String  title;
