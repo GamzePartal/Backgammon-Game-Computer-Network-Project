@@ -1,22 +1,27 @@
 package Backgammon.server;
 
 import Backgammon.common.GameMessage;
+import Backgammon.common.MessageType;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-
 public class ClientHandler implements Runnable {
 
-    private final Socket         socket;
+    private final Socket socket;
     private final BackgammonServer server;
-    private ObjectInputStream    inputStream;
-    private ObjectOutputStream   outputStream;
-    private final int            playerID;
-    private String               username;
-    private GameRoom             gameRoom;
-    private volatile boolean     running;  // FIX: volatile ile diğer thread'lere görünür
+
+    private ObjectInputStream inputStream;
+    private ObjectOutputStream outputStream;
+
+    private final int playerID;
+    private String username;
+
+    private GameRoom gameRoom;
+
+    private volatile boolean running;
+    private volatile boolean joined;
 
     private int wins = 0;
 
@@ -25,22 +30,25 @@ public class ClientHandler implements Runnable {
         this.server   = server;
         this.playerID = playerID;
         this.running  = false;
+        this.joined   = false;
         this.username = "Oyuncu" + playerID;
     }
 
     @Override
     public void run() {
         try {
+            socket.setKeepAlive(true);  // OS seviyesinde TCP keepalive
+            socket.setSoTimeout(0);     // Okuma zaman aşımı yok — sonsuza kadar bekle
+
             outputStream = new ObjectOutputStream(socket.getOutputStream());
             outputStream.flush();
             inputStream = new ObjectInputStream(socket.getInputStream());
 
-            // FIX 1: running bayrağını onClientReady'den ÖNCE set et
             running = true;
+
             ServerLogger.logNetwork("Oyuncu " + playerID + " baglandi: "
                     + socket.getInetAddress().getHostAddress());
 
-            server.onClientReady(this);
             startListening();
 
         } catch (IOException e) {
@@ -54,9 +62,7 @@ public class ClientHandler implements Runnable {
         while (running) {
             try {
                 GameMessage message = (GameMessage) inputStream.readObject();
-                if (message != null) {
-                    handleMessage(message);
-                }
+                if (message != null) handleMessage(message);
             } catch (IOException e) {
                 if (running) {
                     ServerLogger.logNetwork("Oyuncu " + playerID + " baglantisi kesildi.");
@@ -76,19 +82,13 @@ public class ClientHandler implements Runnable {
                 handlePlayerJoin(message);
                 break;
             case ROLL_DICE:
-                if (gameRoom != null) {
-                    gameRoom.rollDice(playerID);
-                }
+                if (gameRoom != null) gameRoom.rollDice(playerID);
                 break;
             case MOVE_PIECE:
-                if (gameRoom != null) {
-                    gameRoom.processMove(message);
-                }
+                if (gameRoom != null) gameRoom.processMove(message);
                 break;
             case REMATCH_REQUEST:
-                if (gameRoom != null) {
-                    gameRoom.handleRematchRequest(playerID);
-                }
+                if (gameRoom != null) gameRoom.handleRematchRequest(playerID);
                 break;
             default:
                 ServerLogger.logWarning("Islenemeyen mesaj tipi: " + message.getType());
@@ -98,9 +98,22 @@ public class ClientHandler implements Runnable {
 
     private void handlePlayerJoin(GameMessage message) {
         if (message.getData() instanceof String) {
-            this.username = (String) message.getData();
+            String receivedName = ((String) message.getData()).trim();
+            if (!receivedName.isEmpty()) this.username = receivedName;
         }
-        ServerLogger.log("Oyuncu " + playerID + " katildi: " + username);
+
+        if (!joined) {
+            joined = true;
+            ServerLogger.log("Oyuncu " + playerID + " katildi: " + username);
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            server.onClientReady(this);
+        } else {
+            ServerLogger.log("Oyuncu " + playerID + " ismi guncellendi: " + username);
+        }
     }
 
     public synchronized void sendMessage(GameMessage message) {
@@ -116,9 +129,7 @@ public class ClientHandler implements Runnable {
     }
 
     public void disconnect() {
-        if (!running) {
-            return;
-        }
+        if (!running) return;
         running = false;
 
         if (gameRoom != null && gameRoom.isActive()) {
@@ -138,11 +149,12 @@ public class ClientHandler implements Runnable {
         ServerLogger.logNetwork("Oyuncu " + playerID + " baglantisi temizlendi.");
     }
 
-    public void incrementWins()               { this.wins++; }
-    public int  getWins()                     { return wins; }
-    public int  getPlayerID()                 { return playerID; }
-    public String getUsername()               { return username; }
-    public GameRoom getGameRoom()             { return gameRoom; }
-    public void setGameRoom(GameRoom r)       { this.gameRoom = r; }
-    public boolean isRunning()                { return running; }
+    public void incrementWins()         { this.wins++; }
+    public int  getWins()               { return wins; }
+    public int  getPlayerID()           { return playerID; }
+    public String getUsername()         { return username; }
+    public GameRoom getGameRoom()       { return gameRoom; }
+    public void setGameRoom(GameRoom r) { this.gameRoom = r; }
+    public boolean isRunning()          { return running; }
+    public boolean isJoined()           { return joined; }
 }

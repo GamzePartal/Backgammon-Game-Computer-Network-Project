@@ -4,6 +4,7 @@ import Backgammon.common.*;
 import java.util.List;
 import java.util.Random;
 
+
 public class GameRoom {
 
     private final String        roomId;
@@ -38,9 +39,8 @@ public class GameRoom {
 
         player1WantsRematch = false;
         player2WantsRematch = false;
-        rematchStarted      = false; // FIX 2: yeni oyun için bayrağı sıfırla
+        rematchStarted      = false;
 
-        // Renk atamasını her oyunda rastgele belirle
         boolean player1IsWhite = RNG.nextBoolean();
         int color1 = player1IsWhite ? Player.WHITE : Player.BLACK;
         int color2 = player1IsWhite ? Player.BLACK : Player.WHITE;
@@ -78,15 +78,13 @@ public class GameRoom {
         gameState = new GameState(board, currentPlayer, waitingPlayer, dice);
         gameState.setStatusMessage(currentPlayer.getUsername() + " basliyor!");
 
-     
-        // Böylece client tarafında beyaz/siyah eşleştirmesi doğru yapılır
         Player whitePlayer = player1IsWhite ? player1 : player2;
         Player blackPlayer = player1IsWhite ? player2 : player1;
         int rollForWhite   = player1IsWhite ? roll1 : roll2;
         int rollForBlack   = player1IsWhite ? roll2 : roll1;
 
-        gameState.setInitRollPlayer1(rollForWhite); // Player1 slot = WHITE oyuncunun zarı
-        gameState.setInitRollPlayer2(rollForBlack); // Player2 slot = BLACK oyuncunun zarı
+        gameState.setInitRollPlayer1(rollForWhite);
+        gameState.setInitRollPlayer2(rollForBlack);
 
         active = true;
 
@@ -123,10 +121,26 @@ public class GameRoom {
         }
 
         if (moves.isEmpty()) {
-            gameState.setStatusMessage(currentPlayer.getUsername()
-                    + " hamle yapamiyor, sira geciyor...");
+            // DÜZELTME 3: Hamle yapılamıyor — önce bilgilendirici mesajla tahtayı gönder,
+            // 1.5 saniye bekle (oyuncular okusun), sonra sırayı geç.
+            String noMoveMsg = currentPlayer.getUsername()
+                    + " hamle yapamıyor (zar: " + values[0] + "-" + values[1]
+                    + "), sıra geçiyor...";
+            gameState.setStatusMessage(noMoveMsg);
             broadcastState();
-            switchTurn();
+
+            ServerLogger.logGame(roomId, currentPlayer.getUsername()
+                    + " hic hamle yapamadi, sira geciyor.");
+
+            // Ayrı thread'de bekleyip geçiyoruz — synchronized bloğu bloke etmemek için
+            Thread delayedSwitch = new Thread(() -> {
+                try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
+                synchronized (GameRoom.this) {
+                    if (active) switchTurn();
+                }
+            }, "DelayedSwitch-" + roomId);
+            delayedSwitch.setDaemon(true);
+            delayedSwitch.start();
             return;
         }
 
@@ -174,7 +188,24 @@ public class GameRoom {
         gameState.setAvailableMoves(remaining);
 
         if (dice.allUsed() || remaining.isEmpty()) {
-            switchTurn();
+            // DÜZELTME 3: Kalan zar haklarında hamle yapılamıyorsa da bildir
+            if (!dice.allUsed() && remaining.isEmpty()) {
+                String skipMsg = currentPlayer.getUsername()
+                        + " kalan zarlarla hamle yapamıyor, sıra geçiyor...";
+                gameState.setStatusMessage(skipMsg);
+                broadcastState();
+
+                Thread delayedSwitch = new Thread(() -> {
+                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
+                    synchronized (GameRoom.this) {
+                        if (active) switchTurn();
+                    }
+                }, "DelayedSwitch-" + roomId);
+                delayedSwitch.setDaemon(true);
+                delayedSwitch.start();
+            } else {
+                switchTurn();
+            }
         } else {
             gameState.setStatusMessage(currentPlayer.getUsername()
                     + " devam ediyor (" + dice.getRemainingCount() + " hamle kaldi)");
@@ -242,7 +273,6 @@ public class GameRoom {
         if (player1Handler.getPlayerID() == playerID) {
             player1WantsRematch = true;
             ServerLogger.logGame(roomId, player1Handler.getUsername() + " rematch istiyor.");
-            // Rakibe bildirim — sadece o daha istemediyse gönder
             if (!player2WantsRematch) {
                 player2Handler.sendMessage(new GameMessage(
                         MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor, bekleniyor..."));
@@ -256,7 +286,6 @@ public class GameRoom {
             }
         }
 
-        // FIX 2: rematchStarted bayrağı ile çift başlatmayı önle
         if (player1WantsRematch && player2WantsRematch && !rematchStarted) {
             rematchStarted = true;
             ServerLogger.logGame(roomId, "Her iki oyuncu da rematch istedi. Yeni oyun basliyor...");
@@ -283,7 +312,6 @@ public class GameRoom {
         }
     }
 
-    // FIX 1: synchronized eklendi — farklı thread'lerden çağrılıyor
     public synchronized void broadcastState() {
         gameState.setBoard(board);
         gameState.setCurrentPlayer(currentPlayer);

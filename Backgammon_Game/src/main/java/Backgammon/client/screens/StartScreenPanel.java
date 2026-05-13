@@ -102,7 +102,7 @@ public class StartScreenPanel extends JPanel {
 
         usernameField = createTextField("");          // Boş — placeholder gösterilecek
         addPlaceholder(usernameField, "İsminizi girin...");
-        ipField = createTextField("127.0.0.1");
+        ipField = createTextField("13.61.0.243");
         portField = createTextField("5000");
 
         panel.add(createFieldLabel("Kullanıcı Adı:"));

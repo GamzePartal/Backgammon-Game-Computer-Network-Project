@@ -22,7 +22,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-
 public class GameScreenPanel extends JPanel {
 
     private final ScreenManager screenManager;
@@ -34,6 +33,7 @@ public class GameScreenPanel extends JPanel {
 
     private int localPlayerID = -1;
 
+    // DÜZELTME 1: Renderer'a localPlayer rengi geçiriliyor
     private BoardRenderer renderer;
 
     private int selectedFromPoint = -2;
@@ -42,6 +42,12 @@ public class GameScreenPanel extends JPanel {
     private List<Integer> validTargets;
 
     private boolean myTurn = false;
+
+    /**
+     * DÜZELTME 2: tıklamayı işleme bayrağı.
+     * Sunucudan BOARD_UPDATE gelene kadar ikinci tıklamayı engeller.
+     */
+    private boolean waitingForServer = false;
 
     private int prevRemoteBarCount = 0;
 
@@ -235,6 +241,13 @@ public class GameScreenPanel extends JPanel {
         client.setPlayerID(localPlayerID);
 
         prevRemoteBarCount = 0;
+        waitingForServer   = false;
+
+        // DÜZELTME 1: Renderer'a kendi taş rengimizi bildir.
+        // BoardRenderer bu bilgiyi kullanarak tahtayı bizim perspektifimizden çizer.
+        // WHITE: ev sol altta, siyah taşlar sağdan sola gelir (standart).
+        // BLACK: ev sağ üstte, siyah taşlar soldan sağa gider (çevrilmiş görünüm).
+        renderer.setLocalPlayerColor(localPlayer.getColor());
 
         SoundManager.getInstance().playBackground();
 
@@ -244,13 +257,11 @@ public class GameScreenPanel extends JPanel {
         showInitRollDialog(state);
     }
 
-    
     private void showInitRollDialog(GameState state) {
-        int rollWhite = state.getInitRollPlayer1(); // WHITE oyuncunun zarı
-        int rollBlack = state.getInitRollPlayer2(); // BLACK oyuncunun zarı
+        int rollWhite = state.getInitRollPlayer1();
+        int rollBlack = state.getInitRollPlayer2();
         if (rollWhite == 0 || rollBlack == 0) return;
 
-        // Beyaz ve siyah oyuncuları bul
         Player white, black;
         if (state.getCurrentPlayer().getColor() == Player.WHITE) {
             white = state.getCurrentPlayer();
@@ -349,6 +360,9 @@ public class GameScreenPanel extends JPanel {
                 && state.getCurrentPlayer() != null
                 && state.getCurrentPlayer().getPlayerID() == localPlayerID;
 
+        // DÜZELTME 2: Sunucudan güncelleme geldi, tıklama engeli kaldır
+        waitingForServer = false;
+
         clearSelection();
 
         rollDiceButton.setEnabled(myTurn && !state.isDiceRolled());
@@ -431,27 +445,46 @@ public class GameScreenPanel extends JPanel {
         }
     }
 
-  
+    /**
+     * DÜZELTME 2: Tek tıkla hamle akışı yeniden yazıldı.
+     *
+     * Önceki sorun: tray tıklaması selectedFromPoint'e tekrar yönlendiriliyordu,
+     * bar hamlesi akışı ayrı bir tıklama gerektiriyordu ve waitingForServer bayrağı
+     * yoktu — hızlı çift tıklamada iki sendMove atılıyordu.
+     *
+     * Yeni akış:
+     *  1. Barda taş varsa → ilk tıklamada bar seçilir, hedefler gösterilir.
+     *     Sonraki tıklamada hedefe gönderilir. (1 seçim + 1 hamle = 2 tıklama toplam)
+     *  2. Normal taş → taşa tıkla (seç), hedefe tıkla (hamle). (2 tıklama)
+     *  3. Tray (taş toplama) → taşa tıkla, tray'e tıkla. (2 tıklama)
+     *     Veya: taşa tıkla, validTargets'ta -2 varsa aynı taşa tekrar tıkla. (2 tıklama)
+     *  4. Hamle gönderilince waitingForServer=true → sunucudan yanıt gelene kadar tıklama engellenir.
+     */
     private void onPointClicked(int pointIndex) {
+        // DÜZELTME 2a: Sunucu yanıtı bekleniyorsa tüm tıklamaları yoksay
+        if (waitingForServer) return;
+
         if (!myTurn || gameState == null || !gameState.isDiceRolled()) return;
 
         Board board = gameState.getBoard();
         Dice  dice  = gameState.getDice();
         int   color = localPlayer.getColor();
 
-        // Barda taş varsa ve bar dışına tıklanmışsa uyar
+        // Barda taş var ve bar dışına tıklandı — uyar
         if (localPlayer.hasBarPiece() && pointIndex != -1 && selectedFromPoint != -1) {
             statusLabel.setText("Önce bardaki taşını oyna! Ortadaki bara tıkla.");
             return;
         }
 
-        // --- Henüz seçim yapılmamış ---
+        // ── Henüz seçim yok ──
         if (selectedFromPoint == -2) {
+
             if (localPlayer.hasBarPiece()) {
-                // Bar hamlesi: kaynak = -1
+                // Bar otomatik seçilir
                 selectedFromPoint = -1;
                 validTargets = calculateBarEntries(dice);
                 if (validTargets.isEmpty()) {
+                    // DÜZELTME 3: Bar'dan girilecek yer yok mesajı
                     statusLabel.setText("Bar'dan girilebilecek hane yok, sıra geçiyor...");
                     clearSelection();
                     return;
@@ -460,50 +493,71 @@ public class GameScreenPanel extends JPanel {
                 if (pointIndex < 0 || pointIndex >= Board.POINT_COUNT) return;
                 Point p = board.getPoint(pointIndex);
                 if (p == null || p.getOwner() != color || p.isEmpty()) return;
+
                 selectedFromPoint = pointIndex;
                 validTargets = calculateTargetsFor(pointIndex, dice);
+
+                if (validTargets.isEmpty()) {
+                    statusLabel.setText("Bu taşla yapılabilecek hamle yok, başka taş seç.");
+                    clearSelection();
+                    return;
+                }
             }
+
             renderer.setSelectedPoint(selectedFromPoint);
             renderer.setHighlightedPoints(validTargets);
             boardPanel.repaint();
             return;
         }
 
-        // --- Seçili taşı hedefe gönder ---
+        // ── Seçim var, hedef bekleniyor ──
+
+        // Tray'e (taş toplama alanı) tıklandı
+        if (validTargets.contains(-2) && renderer.isTrayClicked(
+                // isTrayClicked metodu x,y alır — burada pointIndex üzerinden değil,
+                // doğrudan "aynı hane + tray" kombinasyonu kontrol ediliyor.
+                // Ancak BoardPanel.handleBoardClick'te tray tıklaması zaten
+                // onPointClicked(selectedFromPoint) → bu else bloğuna düşer.
+                // Güvenlik için: pointIndex == selectedFromPoint && validTargets has -2
+                0, 0, color) || (validTargets.contains(-2) && pointIndex == selectedFromPoint)) {
+            int dieVal = findBearingOffDieValue(selectedFromPoint, dice);
+            SoundManager.getInstance().playPieceMove();
+            client.sendMove(selectedFromPoint, -2, dieVal);
+            waitingForServer = true; // DÜZELTME 2b
+            clearSelection();
+            return;
+        }
+
+        // Geçerli hedefe tıklandı
         if (validTargets.contains(pointIndex)) {
             int dieVal = selectedFromPoint == -1
                     ? getBarEntryDieValue(pointIndex)
                     : Math.abs(pointIndex - selectedFromPoint);
             SoundManager.getInstance().playPieceMove();
             client.sendMove(selectedFromPoint, pointIndex, dieVal);
+            waitingForServer = true; // DÜZELTME 2b
             clearSelection();
-
-        } else if (validTargets.contains(-2) && pointIndex == selectedFromPoint) {
-            // Tray tıklaması: seçili taşa tekrar tıklanarak taş toplama
-            int dieVal = findBearingOffDieValue(selectedFromPoint, dice);
-            SoundManager.getInstance().playPieceMove();
-            client.sendMove(selectedFromPoint, -2, dieVal);
-            clearSelection();
-
-        } else if (pointIndex == selectedFromPoint) {
-            // Aynı taşa tekrar tıklama: seçimi iptal et
-            clearSelection();
-
-        } else {
-            // FIX 2: Başka bir noktaya tıklandı — recursive yerine düz akış
-            // Seçimi temizle ve yeni seçim yap (eğer o noktada bizim taşımız varsa)
-            clearSelection();
-            if (pointIndex >= 0 && pointIndex < Board.POINT_COUNT) {
-                Point p = board.getPoint(pointIndex);
-                if (p != null && p.getOwner() == color && !p.isEmpty()) {
-                    selectedFromPoint = pointIndex;
-                    validTargets = calculateTargetsFor(pointIndex, dice);
-                    renderer.setSelectedPoint(selectedFromPoint);
-                    renderer.setHighlightedPoints(validTargets);
-                }
-            }
+            return;
         }
 
+        // Aynı taşa tekrar tıklama → seçimi iptal et
+        if (pointIndex == selectedFromPoint) {
+            clearSelection();
+            boardPanel.repaint();
+            return;
+        }
+
+        // Başka bir kendi taşına tıklandı → yeni seçim yap
+        clearSelection();
+        if (pointIndex >= 0 && pointIndex < Board.POINT_COUNT) {
+            Point p = board.getPoint(pointIndex);
+            if (p != null && p.getOwner() == color && !p.isEmpty()) {
+                selectedFromPoint = pointIndex;
+                validTargets = calculateTargetsFor(pointIndex, dice);
+                renderer.setSelectedPoint(selectedFromPoint);
+                renderer.setHighlightedPoints(validTargets);
+            }
+        }
         boardPanel.repaint();
     }
 
@@ -570,7 +624,9 @@ public class GameScreenPanel extends JPanel {
         renderer.clearSelection();
     }
 
-
+    // ══════════════════════════════════════════════════════════
+    // BoardPanel
+    // ══════════════════════════════════════════════════════════
 
     private class BoardPanel extends JPanel {
         public BoardPanel() {
@@ -593,25 +649,38 @@ public class GameScreenPanel extends JPanel {
                 g2d.drawString("Oyun yükleniyor...", getWidth() / 2 - 90, getHeight() / 2);
                 return;
             }
+            // DÜZELTME 1: renderer her çizimde localPlayer rengini biliyor
             renderer.render(g2d, gameState.getBoard(), gameState.getDice(),
                     gameState.getCurrentPlayer(), gameState.getWaitingPlayer());
         }
 
-        
+        /**
+         * DÜZELTME 2 + tray tıklaması:
+         * Tray tıklaması artık onPointClicked(selectedFromPoint) değil,
+         * doğrudan -2 hedefine yönlendiriliyor; bu sayede tray tıklamasında
+         * selectedFromPoint == pointIndex koşulu tetiklenip seçim iptal edilmiyor.
+         */
         private void handleBoardClick(int x, int y) {
             if (localPlayer == null) return;
+            if (waitingForServer) return; // DÜZELTME 2: engelle
 
-            // Bar tıklaması: barda taş varsa
+            // Bar tıklaması
             if (localPlayer.hasBarPiece() && renderer.isBarClicked(x, y)) {
                 onPointClicked(-1);
                 return;
             }
 
-            // Tray tıklaması: taş toplama modundaysa ve seçili taş varsa
+            // Tray tıklaması: seçili taş varsa ve -2 geçerliyse doğrudan işle
             if (selectedFromPoint >= 0
                     && renderer.isTrayClicked(x, y, localPlayer.getColor())
                     && validTargets.contains(-2)) {
-                onPointClicked(selectedFromPoint); // -2 hedefine yönlendir
+                // Tray'e tıklandı — taş toplama hamlesi yap
+                int dieVal = findBearingOffDieValue(selectedFromPoint, gameState.getDice());
+                SoundManager.getInstance().playPieceMove();
+                client.sendMove(selectedFromPoint, -2, dieVal);
+                waitingForServer = true;
+                clearSelection();
+                boardPanel.repaint();
                 return;
             }
 
@@ -619,6 +688,10 @@ public class GameScreenPanel extends JPanel {
             if (pointIndex >= 0) onPointClicked(pointIndex);
         }
     }
+
+    // ══════════════════════════════════════════════════════════
+    // PlayerCardPanel
+    // ══════════════════════════════════════════════════════════
 
     private class PlayerCardPanel extends JPanel {
 

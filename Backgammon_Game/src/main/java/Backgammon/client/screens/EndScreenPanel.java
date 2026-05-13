@@ -141,7 +141,7 @@ public class EndScreenPanel extends JPanel {
 
         if (isLocalWinner) {
             if (isMars) {
-                resultLabel.setText("Tebrikler, MARS Kazandın!");
+                resultLabel.setText("Tebrikler,Kazandın!");
                 resultLabel.setForeground(new Color(255, 200, 50));
                 marsLabel.setText(" Mars! +2 Galibiyet");
                 titleLabel.setText("MARS!");
@@ -153,12 +153,12 @@ public class EndScreenPanel extends JPanel {
             }
         } else {
             if (isMars) {
-                resultLabel.setText("Mars'a geldin!");
+                resultLabel.setText("Mars oldun!");
                 resultLabel.setForeground(new Color(255, 100, 100));
                 marsLabel.setText("Rakip +2 galibiyet aldı");
                 titleLabel.setText("MARS!");
             } else {
-                resultLabel.setText("Kaybettin.");
+                resultLabel.setText("Kaybettin");
                 resultLabel.setForeground(new Color(255, 100, 100));
                 marsLabel.setText(" ");
                 titleLabel.setText("OYUN BİTTİ");

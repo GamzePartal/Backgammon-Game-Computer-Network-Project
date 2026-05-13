@@ -1,4 +1,5 @@
 package Backgammon.server;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -6,20 +7,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-
-//oyunun ana sunucu sınıfırdır. aws üzerinde konsoldan çalışır, client bağlantılarını kabul eder eşleştirir vs
+// Oyunun ana sunucu sınıfıdır.
+// AWS üzerinde konsoldan çalışır, client bağlantılarını kabul eder ve oyuncuları eşleştirir.
 public class BackgammonServer {
 
-    private static final int DEFAULT_PORT = 5000;    // Sunucunun dinleyeceği varsayılan port numarası
-    private ServerSocket serverSocket; // gelen TCP bağlantılarını kabul eder
-    private final List<ClientHandler> connectedClients;   // Bağlı istemcilerin handler listesi (senkronize erişim gerektirir)
-    private final List<GameRoom> gameRooms; // Aktif oyun odalarının listes
-    private final AtomicInteger playerIDCounter; // Her yeni istemciye benzersiz ID atamak için artımlı sayaç
-    private final AtomicInteger roomIDCounter; // Oyun odalarına benzersiz isim üretmek için artımlı sayaç
-    private boolean running; // server çaılışıyor mu
+    private static final int DEFAULT_PORT = 5000;
 
-    
-    // start çağırana kadar port açılmaz
+    private ServerSocket serverSocket;
+    private final List<ClientHandler> connectedClients;
+    private final List<GameRoom> gameRooms;
+    private final AtomicInteger playerIDCounter;
+    private final AtomicInteger roomIDCounter;
+    private boolean running;
+
     public BackgammonServer() {
         this.connectedClients = new ArrayList<>();
         this.gameRooms = new ArrayList<>();
@@ -28,8 +28,7 @@ public class BackgammonServer {
         this.running = false;
     }
 
-   
-    // server belirtilen portta başlatılır client bağlantısı beklemeye alır
+    // Server belirtilen portta başlatılır.
     public void start(int port) {
         try {
             serverSocket = new ServerSocket(port);
@@ -45,22 +44,20 @@ public class BackgammonServer {
         }
     }
 
-  
-    //gelen istemci bağlantılarını sürekli kabul eder her yeni bağlantı için clienthandler oluşturur
+    // Gelen client bağlantılarını kabul eder.
     private void acceptConnections() {
-       
         ServerLogger.log("Baglanti bekleniyor...");
+
         while (running) {
             try {
-                
-                Socket clientSocket = serverSocket.accept(); // Yeni bağlantı gelene kadar bekle
+                Socket clientSocket = serverSocket.accept();
 
-                int newPlayerID = playerIDCounter.getAndIncrement();  // yeni istemciye id ata
+                int newPlayerID = playerIDCounter.getAndIncrement();
 
-                // Handler oluştur ve thread başlat
                 ClientHandler handler = new ClientHandler(clientSocket, this, newPlayerID);
-                Thread clientThread = new Thread((Runnable) handler, "Oyuncu-" + newPlayerID);
-                clientThread.setDaemon(true); // sunucu kapanınca thread de kapansın
+
+                Thread clientThread = new Thread(handler, "Oyuncu-" + newPlayerID);
+                clientThread.setDaemon(true);
                 clientThread.start();
 
                 ServerLogger.logNetwork("Yeni baglanti kabul edildi, Oyuncu ID: " + newPlayerID);
@@ -69,26 +66,95 @@ public class BackgammonServer {
                 if (running) {
                     ServerLogger.logError("Baglanti kabul hatasi: " + e.getMessage());
                 }
-                // running = false ise sunucu kapatılıyor, döngüden çık
             }
         }
     }
 
+    // Client PLAYER_JOIN mesajını gönderip ismini belirledikten sonra çağrılır.
+    // Yani oyuncu socket açınca değil, gerçekten oyuna katılınca hazır sayılır.
+    public synchronized void onClientReady(ClientHandler handler) {
+        synchronized (connectedClients) {
+            if (!connectedClients.contains(handler)) {
+                connectedClients.add(handler);
 
-    // server kapatılır soket ve aktif bağlantılar silinir
+                ServerLogger.log("Oyuncu " + handler.getPlayerID()
+                        + " listeye eklendi. Toplam bekleyen: " + getWaitingCount());
+            }
+        }
+
+        tryMatchPlayers();
+    }
+
+    // Bekleyen ve ismini göndermiş oyuncuları ikişerli eşleştirir.
+    private synchronized void tryMatchPlayers() {
+        List<ClientHandler> waitingPlayers = new ArrayList<>();
+
+        synchronized (connectedClients) {
+            for (ClientHandler h : connectedClients) {
+                if (h.getGameRoom() == null && h.isRunning() && h.isJoined()) {
+                    waitingPlayers.add(h);
+                }
+            }
+        }
+
+        while (waitingPlayers.size() >= 2) {
+            ClientHandler p1 = waitingPlayers.remove(0);
+            ClientHandler p2 = waitingPlayers.remove(0);
+
+            String roomId = "Oda-" + roomIDCounter.getAndIncrement();
+
+            GameRoom room = new GameRoom(roomId, p1, p2);
+            gameRooms.add(room);
+
+            p1.setGameRoom(room);
+            p2.setGameRoom(room);
+
+            ServerLogger.log("Oyun odasi olusturuldu: " + roomId
+                    + " (" + p1.getUsername() + " vs " + p2.getUsername() + ")");
+
+            Thread gameThread = new Thread(() -> room.initGame(), "Oyun-" + roomId);
+            gameThread.setDaemon(true);
+            gameThread.start();
+        }
+    }
+
+    // Bağlantısı kopan client'ı listeden siler.
+    public synchronized void removeClient(ClientHandler handler) {
+        synchronized (connectedClients) {
+            connectedClients.remove(handler);
+        }
+
+        ServerLogger.logNetwork("Oyuncu " + handler.getPlayerID()
+                + " listeden kaldirildi. Kalan: " + connectedClients.size());
+    }
+
+    // Odaya girmemiş ve ismini göndermiş bekleyen oyuncu sayısını döndürür.
+    private int getWaitingCount() {
+        int count = 0;
+
+        synchronized (connectedClients) {
+            for (ClientHandler h : connectedClients) {
+                if (h.getGameRoom() == null && h.isJoined()) {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    // Server kapatılır.
     public void shutdown() {
         running = false;
         ServerLogger.logShutdown();
 
-        // Tüm istemci bağlantılarını kapat
         synchronized (connectedClients) {
-            for (ClientHandler handler : connectedClients) {
+            for (ClientHandler handler : new ArrayList<>(connectedClients)) {
                 handler.disconnect();
             }
             connectedClients.clear();
         }
 
-        // server soketini kapat
         try {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
@@ -98,92 +164,21 @@ public class BackgammonServer {
         }
     }
 
-    
-    //client hazır olduğunda clienthandler tarafından çağırılır clienti listye ekleyip eşleşme kontrolu yapar
-    // iki oyuncu olursa oyun başlar
-    public synchronized void onClientReady(ClientHandler handler) {
-        connectedClients.add(handler);
-        ServerLogger.log("Oyuncu " + handler.getPlayerID() + " listeye eklendi. "+ "Toplam bekleyen: " + getWaitingCount());
-
-        tryMatchPlayers();  // bekleyen oyuncuları eşleştir
-    }
-
-   
-    //bekleyen oyuncuları eşleştirir ve oyunu başlatır
-    private void tryMatchPlayers() {
-        
-        List<ClientHandler> waitingPlayers = new ArrayList<>(); // Oyun odası olmayan oyuncuları filtrele
-        synchronized (connectedClients) {
-            for (ClientHandler h : connectedClients) {
-                if (h.getGameRoom() == null && h.isRunning()) {
-                    waitingPlayers.add(h);
-                }
-            }
-        }
-
-        // En az iki bekleyen oyuncu varsa eşleştir
-        while (waitingPlayers.size() >= 2) {
-            ClientHandler p1 = waitingPlayers.remove(0);
-            ClientHandler p2 = waitingPlayers.remove(0);
-
-            String roomId = "Oda-" + roomIDCounter.getAndIncrement();
-
-            GameRoom room = new GameRoom(roomId, p1, p2); // oyun odası oluştur
-            gameRooms.add(room);
-            p1.setGameRoom(room); 
-            p2.setGameRoom(room);
-
-            ServerLogger.log("Oyun odasi olusturuldu: " + roomId+ " (" + p1.getUsername() + " vs " + p2.getUsername() + ")");
-
-            // Oyunu ayrı thread'de başlat (initGame bloklamasın)
-            final GameRoom finalRoom = room;
-            Thread gameThread = new Thread(() -> finalRoom.initGame(), "Oyun-" + roomId);
-            gameThread.setDaemon(true);
-            gameThread.start();
-        }
-    }
-
-   
-    //bağlantısı kopan clientı listeden sil clientHandler.disconnect çağırır
-    public synchronized void removeClient(ClientHandler handler) {
-        synchronized (connectedClients) {
-            connectedClients.remove(handler);
-        }
-        ServerLogger.logNetwork("Oyuncu " + handler.getPlayerID() + " listeden kaldirildi. Kalan: " + connectedClients.size());
-    }
-
-    
-    //bekleyen oyuncu sayısını döner
-    private int getWaitingCount() {
-        int count = 0;
-        synchronized (connectedClients) {
-            for (ClientHandler h : connectedClients) {
-                if (h.getGameRoom() == null) {
-                    count++;
-                }
-            }
-        }
-        return count;
-    }
-
-    
-    
     public static void main(String[] args) {
         int port = DEFAULT_PORT;
 
-        // Komut satırından port numarası alındıysa kullan
         if (args.length > 0) {
             try {
                 port = Integer.parseInt(args[0]);
             } catch (NumberFormatException e) {
-                ServerLogger.logWarning("Gecersiz port: " + args[0] + " - Varsayilan port kullaniliyor: " + DEFAULT_PORT);
+                ServerLogger.logWarning("Gecersiz port: " + args[0]
+                        + " - Varsayilan port kullaniliyor: " + DEFAULT_PORT);
             }
         }
 
         BackgammonServer server = new BackgammonServer();
         Runtime.getRuntime().addShutdownHook(new Thread(server::shutdown, "ShutdownHook"));
 
- 
         server.start(port);
     }
 }

@@ -14,7 +14,7 @@ public class BackgammonClient {
     private Socket socket;
     private ObjectOutputStream outputStream;
     private ObjectInputStream  inputStream;
-    private boolean listening;
+    private volatile boolean listening;
     private ScreenManager screenManager;
     private int    playerID;
     private String username;
@@ -24,13 +24,12 @@ public class BackgammonClient {
         this.listening     = false;
     }
 
- 
-
     public boolean connect(String ip, int port) {
         this.serverIP   = ip;
         this.serverPort = port;
         try {
-            socket       = new Socket(serverIP, serverPort);
+            socket = new Socket(serverIP, serverPort);
+            socket.setKeepAlive(true); // OS seviyesinde TCP keepalive — bağlantı düşmesini önler
             outputStream = new ObjectOutputStream(socket.getOutputStream());
             outputStream.flush();
             inputStream  = new ObjectInputStream(socket.getInputStream());
@@ -65,8 +64,6 @@ public class BackgammonClient {
         t.start();
     }
 
-
-
     public synchronized void sendMessage(GameMessage message) {
         try {
             if (outputStream != null && isConnected()) {
@@ -96,19 +93,14 @@ public class BackgammonClient {
         sendMessage(new GameMessage(MessageType.PLAYER_JOIN, playerID, username));
     }
 
-    
     public void sendRematchRequest() {
         System.out.println("[DEBUG] sendRematchRequest - playerID: " + playerID);
         sendMessage(new GameMessage(MessageType.REMATCH_REQUEST, playerID));
     }
 
-  
-
     private void handleServerMessage(GameMessage message) {
         screenManager.onMessageReceived(message);
     }
-
-   
 
     public void disconnect() {
         listening = false;
@@ -126,11 +118,9 @@ public class BackgammonClient {
         return socket != null && socket.isConnected() && !socket.isClosed();
     }
 
-
-
-    public int    getPlayerID()            { return playerID; }
-    public void   setPlayerID(int id)      { this.playerID = id; }
-    public String getUsername()            { return username; }
-    public String getServerIP()            { return serverIP; }
-    public int    getServerPort()          { return serverPort; }
+    public int    getPlayerID()        { return playerID; }
+    public void   setPlayerID(int id)  { this.playerID = id; }
+    public String getUsername()        { return username; }
+    public String getServerIP()        { return serverIP; }
+    public int    getServerPort()      { return serverPort; }
 }
