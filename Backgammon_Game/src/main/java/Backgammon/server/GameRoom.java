@@ -1,60 +1,44 @@
 package Backgammon.server;
-
 import Backgammon.common.*;
 import java.util.List;
 import java.util.Random;
 
-
+//iki oyuncu arasındaki oyunu server tarafında yöneten ana class’tır
+//Oyun başlatma, zar atma, hamle işleme, sıra değiştirme, oyun bitirme ve tekrar oynama işlemlerini yürütür.
 public class GameRoom {
 
-    private final String        roomId;
-    private final ClientHandler player1Handler;
-    private final ClientHandler player2Handler;
-    private Player    player1;
-    private Player    player2;
-    private Board     board;
-    private Dice      dice;
+    private final String roomId;
+    private final ClientHandler p1Handler;
+    private final ClientHandler p2Handler;
+    private Player player1, player2;
+    private Board board;
+    private Dice dice;
     private GameState gameState;
-    private Player    currentPlayer;
-    private Player    waitingPlayer;
-    private boolean   active;
-
-    private boolean player1WantsRematch = false;
-    private boolean player2WantsRematch = false;
-    private boolean rematchStarted      = false;
-
+    private Player currentPlayer, waitingPlayer;
+    private boolean active;
+    private boolean p1WantsRematch, p2WantsRematch, rematchStarted;
     private static final Random RNG = new Random();
 
-    public GameRoom(String roomId,
-                    ClientHandler player1Handler,
-                    ClientHandler player2Handler) {
-        this.roomId         = roomId;
-        this.player1Handler = player1Handler;
-        this.player2Handler = player2Handler;
-        this.active         = false;
+    public GameRoom(String roomId, ClientHandler p1Handler, ClientHandler p2Handler) {
+        this.roomId = roomId;
+        this.p1Handler = p1Handler;
+        this.p2Handler = p2Handler;
     }
 
+    //Yeni oyunu başlatır oyunculara renk verir, başlangıç zarlarını atar, 
+    //ilk başlayacak oyuncuyu belirler ve clientlara GAME_START gönderir.
     public synchronized void initGame() {
         ServerLogger.logGame(roomId, "Oyun baslatiliyor...");
+        p1WantsRematch = p2WantsRematch = rematchStarted = false;
 
-        player1WantsRematch = false;
-        player2WantsRematch = false;
-        rematchStarted      = false;
-
-        boolean player1IsWhite = RNG.nextBoolean();
-        int color1 = player1IsWhite ? Player.WHITE : Player.BLACK;
-        int color2 = player1IsWhite ? Player.BLACK : Player.WHITE;
-
-        player1 = new Player(player1Handler.getPlayerID(),
-                             player1Handler.getUsername(), color1);
-        player1.setWins(player1Handler.getWins());
-
-        player2 = new Player(player2Handler.getPlayerID(),
-                             player2Handler.getUsername(), color2);
-        player2.setWins(player2Handler.getWins());
+        boolean p1IsWhite = RNG.nextBoolean();
+        player1 = new Player(p1Handler.getPlayerID(), p1Handler.getUsername(), p1IsWhite ? Player.WHITE : Player.BLACK);
+        player2 = new Player(p2Handler.getPlayerID(), p2Handler.getUsername(), p1IsWhite ? Player.BLACK : Player.WHITE);
+        player1.setWins(p1Handler.getWins());
+        player2.setWins(p2Handler.getWins());
 
         board = new Board();
-        dice  = new Dice();
+        dice = new Dice();
 
         int roll1, roll2;
         do {
@@ -62,121 +46,94 @@ public class GameRoom {
             roll2 = RNG.nextInt(6) + 1;
         } while (roll1 == roll2);
 
-        if (roll1 > roll2) {
-            currentPlayer = player1;
-            waitingPlayer = player2;
-        } else {
-            currentPlayer = player2;
-            waitingPlayer = player1;
-        }
+        currentPlayer = (roll1 > roll2) ? player1 : player2;
+        waitingPlayer = (roll1 > roll2) ? player2 : player1;
 
-        ServerLogger.logGame(roomId, "Baslangic zari: "
-                + player1.getUsername() + "=" + roll1
+        ServerLogger.logGame(roomId, "Baslangic: " + player1.getUsername() + "=" + roll1
                 + " | " + player2.getUsername() + "=" + roll2
                 + " -> " + currentPlayer.getUsername() + " basliyor!");
 
         gameState = new GameState(board, currentPlayer, waitingPlayer, dice);
         gameState.setStatusMessage(currentPlayer.getUsername() + " basliyor!");
-
-        Player whitePlayer = player1IsWhite ? player1 : player2;
-        Player blackPlayer = player1IsWhite ? player2 : player1;
-        int rollForWhite   = player1IsWhite ? roll1 : roll2;
-        int rollForBlack   = player1IsWhite ? roll2 : roll1;
-
-        gameState.setInitRollPlayer1(rollForWhite);
-        gameState.setInitRollPlayer2(rollForBlack);
+        gameState.setInitRollPlayer1(p1IsWhite ? roll1 : roll2);
+        gameState.setInitRollPlayer2(p1IsWhite ? roll2 : roll1);
 
         active = true;
-
-        GameMessage startMsg = new GameMessage(MessageType.GAME_START, 0, gameState);
-        player1Handler.sendMessage(startMsg);
-        player2Handler.sendMessage(startMsg);
-
-        ServerLogger.logGame(roomId, "Oyun basladi! "
-                + player1.getUsername() + " vs " + player2.getUsername());
+        broadcast(new GameMessage(MessageType.GAME_START, 0, gameState));
+        ServerLogger.logGame(roomId, "Oyun basladi: " + player1.getUsername() + " vs " + player2.getUsername());
     }
 
+    //sıradaki oyuncunun zar atmasını sağlar
+    //zar sonrası yapılabilecek hamleleri hesaplar hame yoksa sıra geçirir
     public synchronized void rollDice(int playerID) {
         if (!isPlayerTurn(playerID)) {
-            sendErrorTo(playerID, "Su an sizin siraniz degil!");
+            sendError(playerID, "Su an sizin siraniz degil!");
             return;
         }
         if (gameState.isDiceRolled()) {
-            sendErrorTo(playerID, "Bu turda zaten zar attiniz!");
+            sendError(playerID, "Bu turda zaten zar attiniz!");
             return;
         }
 
-        int[] values = dice.roll();
+        int[] vals = dice.roll();
         gameState.setDiceRolled(true);
-
         List<int[]> moves = board.getAvailableMoves(dice, currentPlayer);
         gameState.setAvailableMoves(moves);
 
-        if (dice.isDoubles()) {
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " Cift zar atti: " + values[0] + "+" + values[0]);
-        } else {
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " Zar atti: " + values[0] + "+" + values[1]);
-        }
+        ServerLogger.logGame(roomId, currentPlayer.getUsername() + " zar atti: " + vals[0] + "+" + vals[1]
+                + (dice.isDoubles() ? " (CIFT)" : ""));
 
         if (moves.isEmpty()) {
-            // DÜZELTME 3: Hamle yapılamıyor — önce bilgilendirici mesajla tahtayı gönder,
-            // 1.5 saniye bekle (oyuncular okusun), sonra sırayı geç.
-            String noMoveMsg = currentPlayer.getUsername()
-                    + " hamle yapamıyor (zar: " + values[0] + "-" + values[1]
-                    + "), sıra geçiyor...";
-            gameState.setStatusMessage(noMoveMsg);
+            gameState.setStatusMessage(currentPlayer.getUsername() + " hamle yapamıyor (zar: "
+                    + vals[0] + "-" + vals[1] + "), sıra geçiyor...");
             broadcastState();
-
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " hic hamle yapamadi, sira geciyor.");
-
-            // Ayrı thread'de bekleyip geçiyoruz — synchronized bloğu bloke etmemek için
-            Thread delayedSwitch = new Thread(() -> {
-                try { Thread.sleep(1500); } catch (InterruptedException ignored) {}
-                synchronized (GameRoom.this) {
-                    if (active) switchTurn();
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1500);
+                } catch (InterruptedException ignored) {
                 }
-            }, "DelayedSwitch-" + roomId);
-            delayedSwitch.setDaemon(true);
-            delayedSwitch.start();
+                synchronized (GameRoom.this) {
+                    if (active) {
+                        switchTurn();
+                    }
+                }
+            }, "DelayedSwitch-" + roomId) {
+                {
+                    setDaemon(true);
+                }
+            }.start();
             return;
         }
-
         gameState.setStatusMessage(currentPlayer.getUsername() + " hamle yapiyor...");
         broadcastState();
     }
 
+    
+    //oyuncunun gönderdiği hamleyi işer hamle geçerliyse tahtaya uygulanır
     public synchronized void processMove(GameMessage msg) {
         if (!isPlayerTurn(msg.getSenderID())) {
-            sendErrorTo(msg.getSenderID(), "Su an sizin siraniz degil!");
+            sendError(msg.getSenderID(), "Su an sizin siraniz degil!");
             return;
         }
         if (!gameState.isDiceRolled()) {
-            sendErrorTo(msg.getSenderID(), "Once zar atmaniz gerekiyor!");
+            sendError(msg.getSenderID(), "Once zar atmaniz gerekiyor!");
             return;
         }
 
-        int[] moveData = (int[]) msg.getData();
-        int from = moveData[0];
-        int to   = moveData[1];
+        int[] d = (int[]) msg.getData();
+        int from = d[0], to = d[1];
 
         if (!board.isValidMove(from, to, dice, currentPlayer)) {
-            sendErrorTo(msg.getSenderID(), "Gecersiz hamle!");
+            sendError(msg.getSenderID(), "Gecersiz hamle!");
             return;
         }
 
-        Player opponent = getOpponent(currentPlayer);
-        board.movePiece(from, to, currentPlayer, opponent, dice);
+        board.movePiece(from, to, currentPlayer, getOpponent(currentPlayer), dice);
 
         if (to == -2) {
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " tasi topladi: " + (from + 1) + ". haneden");
+            ServerLogger.logGame(roomId, currentPlayer.getUsername() + " tasi topladi: " + (from + 1));
         } else {
-            ServerLogger.logGame(roomId, currentPlayer.getUsername()
-                    + " " + (from == -1 ? "bar" : (from + 1))
-                    + " -> " + (to + 1));
+            ServerLogger.logGame(roomId, currentPlayer.getUsername() + " " + (from == -1 ? "bar" : (from + 1)) + " -> " + (to + 1));
         }
 
         if (board.checkWinner(currentPlayer)) {
@@ -187,160 +144,136 @@ public class GameRoom {
         List<int[]> remaining = board.getAvailableMoves(dice, currentPlayer);
         gameState.setAvailableMoves(remaining);
 
-        if (dice.allUsed() || remaining.isEmpty()) {
-            // DÜZELTME 3: Kalan zar haklarında hamle yapılamıyorsa da bildir
-            if (!dice.allUsed() && remaining.isEmpty()) {
-                String skipMsg = currentPlayer.getUsername()
-                        + " kalan zarlarla hamle yapamıyor, sıra geçiyor...";
-                gameState.setStatusMessage(skipMsg);
-                broadcastState();
-
-                Thread delayedSwitch = new Thread(() -> {
-                    try { Thread.sleep(1200); } catch (InterruptedException ignored) {}
-                    synchronized (GameRoom.this) {
-                        if (active) switchTurn();
+        if (!dice.allUsed() && remaining.isEmpty()) {
+            gameState.setStatusMessage(currentPlayer.getUsername() + " kalan zarlarla hamle yapamıyor, sıra geçiyor...");
+            broadcastState();
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1200);
+                } catch (InterruptedException ignored) {
+                }
+                synchronized (GameRoom.this) {
+                    if (active) {
+                        switchTurn();
                     }
-                }, "DelayedSwitch-" + roomId);
-                delayedSwitch.setDaemon(true);
-                delayedSwitch.start();
-            } else {
-                switchTurn();
-            }
+                }
+            }, "DelayedSwitch-" + roomId) {
+                {
+                    setDaemon(true);
+                }
+            }.start();
+        } else if (dice.allUsed() || remaining.isEmpty()) {
+            switchTurn();
         } else {
-            gameState.setStatusMessage(currentPlayer.getUsername()
-                    + " devam ediyor (" + dice.getRemainingCount() + " hamle kaldi)");
+            gameState.setStatusMessage(currentPlayer.getUsername() + " devam ediyor (" + dice.getRemainingCount() + " hamle kaldi)");
             broadcastState();
         }
     }
 
+    
+    //sırayı diğer oyuncuya geçirir zarları sıfırlar oyun durumunu günceller ve clientlara gönderir
     public synchronized void switchTurn() {
-        Player temp   = currentPlayer;
+        Player temp = currentPlayer;
         currentPlayer = waitingPlayer;
         waitingPlayer = temp;
-
         dice.reset();
         gameState.setDiceRolled(false);
         gameState.setCurrentPlayer(currentPlayer);
         gameState.setWaitingPlayer(waitingPlayer);
         gameState.setAvailableMoves(null);
         gameState.setStatusMessage(currentPlayer.getUsername() + "'in sirasi - Zar atin!");
-
         ServerLogger.logGame(roomId, "Sira gecti -> " + currentPlayer.getUsername());
         broadcastState();
     }
 
-    private boolean checkMars(Player loser) {
-        if (loser.getPiecesBorneOff() == 0) {
-            ServerLogger.logGame(roomId, "Mars kontrolu: " + loser.getUsername()
-                    + " hic tas toplayamamis -> MARS");
-            return true;
-        }
-        ServerLogger.logGame(roomId, "Mars kontrolu: " + loser.getUsername()
-                + " en az 1 tas toplamis -> mars yok");
-        return false;
-    }
-
+    //kazananı belirler, mars durumuna bakar,galibiyet sayısını arttır,gameover mesajı gönderir
     public synchronized void endGame(Player winner) {
-        Player loser  = getOpponent(winner);
-        boolean isMars = checkMars(loser);
-        int winsToAdd  = isMars ? 2 : 1;
+        Player loser = getOpponent(winner);
+        boolean isMars = loser.getPiecesBorneOff() == 0;
+        int winsToAdd = isMars ? 2 : 1;
 
-        ClientHandler winnerHandler = (winner == player1) ? player1Handler : player2Handler;
+        ClientHandler wh = (winner == player1) ? p1Handler : p2Handler;
         for (int i = 0; i < winsToAdd; i++) {
-            winnerHandler.incrementWins();
+            wh.incrementWins();
         }
-        winner.setWins(winnerHandler.getWins());
+        winner.setWins(wh.getWins());
 
         gameState.setGameOver(winner, isMars);
         active = false;
-
-        GameMessage overMsg = new GameMessage(MessageType.GAME_OVER, 0, gameState);
-        player1Handler.sendMessage(overMsg);
-        player2Handler.sendMessage(overMsg);
-
-        if (isMars) {
-            ServerLogger.logGame(roomId, "OYUN BITTI! MARS! Kazanan: "
-                    + winner.getUsername()
-                    + " (+2 galibiyet, toplam: " + winnerHandler.getWins() + ")");
-        } else {
-            ServerLogger.logGame(roomId, "OYUN BITTI! Kazanan: "
-                    + winner.getUsername()
-                    + " (+1 galibiyet, toplam: " + winnerHandler.getWins() + ")");
-        }
+        broadcast(new GameMessage(MessageType.GAME_OVER, 0, gameState));
+        ServerLogger.logGame(roomId, "OYUN BITTI! " + (isMars ? "MARS! " : "") + "Kazanan: "
+                + winner.getUsername() + " (+" + winsToAdd + ", toplam: " + wh.getWins() + ")");
     }
 
+    
+    //oyuncunun tekrar oynama istediğini alır iğer oyuncu da kabul ederse yeni oyun başlatılır
     public synchronized void handleRematchRequest(int playerID) {
-        if (player1Handler.getPlayerID() == playerID) {
-            player1WantsRematch = true;
-            ServerLogger.logGame(roomId, player1Handler.getUsername() + " rematch istiyor.");
-            if (!player2WantsRematch) {
-                player2Handler.sendMessage(new GameMessage(
-                        MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor, bekleniyor..."));
+        boolean isP1 = p1Handler.getPlayerID() == playerID;
+        if (isP1) {
+            p1WantsRematch = true;
+            if (!p2WantsRematch) {
+                p2Handler.sendMessage(new GameMessage(MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor..."));
             }
         } else {
-            player2WantsRematch = true;
-            ServerLogger.logGame(roomId, player2Handler.getUsername() + " rematch istiyor.");
-            if (!player1WantsRematch) {
-                player1Handler.sendMessage(new GameMessage(
-                        MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor, bekleniyor..."));
+            p2WantsRematch = true;
+            if (!p1WantsRematch) {
+                p1Handler.sendMessage(new GameMessage(MessageType.WAITING, 0, "Rakip tekrar oynamak istiyor..."));
             }
         }
-
-        if (player1WantsRematch && player2WantsRematch && !rematchStarted) {
+        if (p1WantsRematch && p2WantsRematch && !rematchStarted) {
             rematchStarted = true;
-            ServerLogger.logGame(roomId, "Her iki oyuncu da rematch istedi. Yeni oyun basliyor...");
-            Thread t = new Thread(this::initGame, "Rematch-" + roomId);
-            t.setDaemon(true);
-            t.start();
+            new Thread(this::initGame, "Rematch-" + roomId) {
+                {
+                    setDaemon(true);
+                }
+            }.start();
         }
     }
 
-    public synchronized void handleDisconnect(int disconnectedPlayerID) {
+    
+    //bir oyuncu bağlantıyı keserse rakibe bilgi verilir ve oyun kapatılır
+    public synchronized void handleDisconnect(int disconnectedID) {
         active = false;
-        ServerLogger.logGame(roomId, "Oyuncu " + disconnectedPlayerID + " baglantiyi kesti.");
-
-        GameMessage discMsg = new GameMessage(
-                MessageType.PLAYER_DISCONNECT,
-                disconnectedPlayerID,
-                "Rakip baglantiyi kesti."
-        );
-
-        if (player1Handler.getPlayerID() == disconnectedPlayerID) {
-            player2Handler.sendMessage(discMsg);
-        } else {
-            player1Handler.sendMessage(discMsg);
-        }
+        GameMessage msg = new GameMessage(MessageType.PLAYER_DISCONNECT, disconnectedID, "Rakip baglantiyi kesti.");
+        (p1Handler.getPlayerID() == disconnectedID ? p2Handler : p1Handler).sendMessage(msg);
     }
 
+    //güncel gamState bilgisini iki oyuncuyada gönderir
     public synchronized void broadcastState() {
         gameState.setBoard(board);
         gameState.setCurrentPlayer(currentPlayer);
         gameState.setWaitingPlayer(waitingPlayer);
         gameState.setDice(dice);
-
-        GameMessage updateMsg = new GameMessage(MessageType.BOARD_UPDATE, 0, gameState);
-        player1Handler.sendMessage(updateMsg);
-        player2Handler.sendMessage(updateMsg);
+        broadcast(new GameMessage(MessageType.BOARD_UPDATE, 0, gameState));
     }
 
-    private void sendErrorTo(int playerID, String errorText) {
-        GameMessage errMsg = new GameMessage(MessageType.ERROR, 0, errorText);
-        if (player1Handler.getPlayerID() == playerID) {
-            player1Handler.sendMessage(errMsg);
-        } else {
-            player2Handler.sendMessage(errMsg);
-        }
+    //verilen mesajı iki oyuncuya birden gönderir
+    private void broadcast(GameMessage msg) {
+        p1Handler.sendMessage(msg);
+        p2Handler.sendMessage(msg);
     }
 
-    private Player getOpponent(Player player) {
-        return (player == player1) ? player2 : player1;
+    //belirtilen oyuncuya hata mesajı gönderilir
+    private void sendError(int pid, String text) {
+        (p1Handler.getPlayerID() == pid ? p1Handler : p2Handler).sendMessage(new GameMessage(MessageType.ERROR, 0, text));
     }
 
-    public boolean isPlayerTurn(int playerID) {
-        return currentPlayer != null
-                && currentPlayer.getPlayerID() == playerID;
+    //verilen oyuncunun rakibini döner
+    private Player getOpponent(Player p) {
+        return (p == player1) ? player2 : player1;
     }
 
-    public String  getRoomId() { return roomId; }
-    public boolean isActive()  { return active; }
+    //verilen oyuncu idsi sıradaki oyuncuya mı ait
+    public boolean isPlayerTurn(int pid) {
+        return currentPlayer != null && currentPlayer.getPlayerID() == pid;
+    }
+
+    public String getRoomId() {
+        return roomId;
+    }
+
+    //oyun odası aktif mi
+    public boolean isActive() {
+        return active;
+    }
 }

@@ -1,23 +1,19 @@
-
 package Backgammon.common;
 
-
 public enum MessageType {
-    
-    PLAYER_JOIN, //oyuncu sunucuya bağlandı
-    GAME_START, //iki oyuncu hazırsa gönder
-    ROLL_DICE, // oyuncu zar atmak istediğinde
-    DICE_RESULT, 
-    MOVE_PIECE, //oyuncu hamle yapmak istediğinde
-    BOARD_UPDATE, //sunucunun güncel tahtayı clientlara göndermesşi
-    TURN_CHANGE,
-    HIT_PIECE, //taş kırıldı bara gönderildi
-    BEAR_OFF, // oyuncu taşını topluyor
-    GAME_OVER,
-    ERROR,
-    REMATCH_REQUEST, //yeni oyun
-    REMATCH_ACCEPT, //karşı taraf yeni oyun istediğin kabul edince 
-    PLAYER_DISCONNECT, //oyuncu oyundan ayrıldı
-    WAITING //oyuncu sıra bekliyor 
-    
+    PLAYER_JOIN,      // Oyuncu sunucuya bağlandı
+    GAME_START,       // İki oyuncu hazır oyun başlıyor
+    ROLL_DICE,        // Oyuncu zar atmak istiyor
+    DICE_RESULT,      // Zar sonucu
+    MOVE_PIECE,       // Oyuncu hamle yapıyor
+    BOARD_UPDATE,     // Güncel tahta durumu
+    TURN_CHANGE,      // Sıra değişti
+    HIT_PIECE,        // Taş kırıldı bara gönderildi
+    BEAR_OFF,         // Taş toplama
+    GAME_OVER,        // Oyun bitti
+    ERROR,            // Hata mesajı
+    REMATCH_REQUEST,  // Yeniden oynama isteği
+    REMATCH_ACCEPT,   // Yeniden oynama kabul edildi
+    PLAYER_DISCONNECT,// Oyuncu ayrıldı
+    WAITING           // Rakip bekleniyor
 }

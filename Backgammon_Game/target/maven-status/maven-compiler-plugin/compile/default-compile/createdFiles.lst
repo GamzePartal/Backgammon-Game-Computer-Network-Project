@@ -13,6 +13,7 @@ Backgammon\common\Player.class
 Backgammon\client\ScreenManager$1.class
 Backgammon\client\screens\GameScreenPanel$BoardPanel.class
 Backgammon\server\ServerLogger.class
+Backgammon\server\GameRoom$2.class
 Backgammon\client\screens\GameScreenPanel$1.class
 Backgammon\client\screens\StartScreenPanel$1.class
 Backgammon\server\GameRoom.class
@@ -26,9 +27,11 @@ Backgammon\client\screens\StartScreenPanel$2.class
 Backgammon\common\GameMessage.class
 Backgammon\common\Point.class
 Backgammon\client\screens\StartScreenPanel$RoundedTextField.class
+Backgammon\server\GameRoom$1.class
 Backgammon\client\screens\StartScreenPanel$RoundedButton.class
 Backgammon\client\screens\StartScreenPanel$GlassPanel.class
 Backgammon\client\ScreenManager.class
 Backgammon\client\MainApp.class
 Backgammon\server\BackgammonServer.class
 Backgammon\common\Board.class
+Backgammon\server\GameRoom$3.class

@@ -5,126 +5,88 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+//zar atma ve kala hamle haklarını yönetir
 public class Dice implements Serializable {
 
-    private static final long serialVersionUID = 1L;  // Java serileştirme versiyonu
-    private final Random random;  // Zar atmak için kullanılan rastgele sayı üreteci
-    private int die1;// zarlar 1-6 arasında değer alır
-    private int die2;
+    private static final long serialVersionUID = 1L;
 
-  
-    // kullanılabilecek hamle hakkını tutan liste
-    private List<Integer> remainingMoves;  
-
-    // Zarların atılıp atılmadığını takip eden bayrak
+    private final Random random = new Random();
+    private int die1, die2;
+    private final List<Integer> remainingMoves = new ArrayList<>();
     private boolean rolled;
 
-   
-    public Dice() {
-        this.random = new Random();
-        this.remainingMoves = new ArrayList<>(); 
-        this.rolled = false;
-        this.die1 = 0;
-        this.die2 = 0;
-    }
-
-   
+    //İki zar atılır çift gelirse dört hamle hakkı, normal gelirse iki hamle hakkı oluşur
     public int[] roll() {
-        // 1-6 arası iki rastgele değer üret
         die1 = random.nextInt(6) + 1;
         die2 = random.nextInt(6) + 1;
-
-        // Kalan hamle listesini temizle ve yeni değerleri ekle
         remainingMoves.clear();
-
-        if (isDoubles()) {
-            // Çift geldi 4 hamle hakkı oldu
+        int repeats = isDoubles() ? 4 : 2;
+        for (int i = 0; i < repeats; i++) {
             remainingMoves.add(die1);
-            remainingMoves.add(die1);
-            remainingMoves.add(die1);
-            remainingMoves.add(die1);
-        } else {
-            // Normal atış 2 hamle hakkı
-            remainingMoves.add(die1);
-            remainingMoves.add(die2);
         }
-
-        this.rolled = true;
+        if (!isDoubles()) {
+            remainingMoves.set(1, die2);
+        }
+        rolled = true;
         return new int[]{die1, die2};
     }
 
-  
-    
-    // verilen zar değerini kullanıldı mı? true ise kullanıldı false ise o değer listede yok
+    //Kullanılan zar değerini kalan hamle listesinden siler
     public boolean useDie(int value) {
-        
-        for (int i = 0; i < remainingMoves.size(); i++) {
-            if (remainingMoves.get(i) == value) {
-                remainingMoves.remove(i); 
-                return true;
-            }
+        int idx = remainingMoves.indexOf(value);
+        if (idx < 0) {
+            return false;
         }
-        return false; 
+        remainingMoves.remove(idx);
+        return true;
     }
 
-   
-    // verilen zar değerinin hala kullanılabilir olup olmadığına bakılır true ise hamle yapıabilir
+    //verilen zar değeri kullanılabilir mi
     public boolean canUse(int value) {
         return remainingMoves.contains(value);
     }
 
-    //Zarları sıfırlar ve yeni tur için hazırlar sıra değiştiğinde çağır
-    public void reset() {
-        die1 = 0;
-        die2 = 0;
-        remainingMoves.clear();
-        rolled = false;
-    }
-
-    
-    public boolean isDoubles() {
-        return die1 == die2;
-    }
-
-   
-    // tüm hamleler kullanıldı mı
+    //tüm hamleler kullanıldı ı
     public boolean allUsed() {
         return remainingMoves.isEmpty();
     }
 
-    
-    // zarlar atıldı mı? true ise atldı
+    //zar atıldı mı
     public boolean isRolled() {
         return rolled;
     }
 
-    
+    //zarlar çift mi geldi
+    public boolean isDoubles() {
+        return die1 == die2;
+    }
+
     public int getDie1() {
         return die1;
     }
 
-    
     public int getDie2() {
         return die2;
     }
 
-    
-    //Atılan zar değerlerini dizi olarak döner
     public int[] getValues() {
         return new int[]{die1, die2};
     }
 
-    
-    //kalan hamle haklarının listesidir liste değiştirilmesin diye kopya döndürüyoz
-    public List<Integer> getRemainingMoves() {
-        return new ArrayList<>(remainingMoves);
-    }
-
-    
-    //kalan hamle sayısı
+    //kalan hamle hakkını döndür
     public int getRemainingCount() {
         return remainingMoves.size();
     }
 
-   
+    //kalan zar hamlelerini list olarak döndür
+    public List<Integer> getRemainingMoves() {
+        return new ArrayList<>(remainingMoves);
+    }
+
+    //zarları ve kalan hamleleri sıfırla yeni sıra
+    public void reset() {
+        die1 = die2 = 0;
+        remainingMoves.clear();
+        rolled = false;
+    }
 }

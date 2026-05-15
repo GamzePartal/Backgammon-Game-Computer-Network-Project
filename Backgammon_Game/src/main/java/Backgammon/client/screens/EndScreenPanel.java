@@ -6,28 +6,22 @@ import Backgammon.client.SoundManager;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 
+//oyun bittikten sonra sonuç ekranını gösterir
+//Kazanan, kaybeden, mars bilgisi ve tekrar oynama seçeneği burada yer alır
 public class EndScreenPanel extends JPanel {
 
     private final ScreenManager screenManager;
-
-    private JLabel  titleLabel;
-    private JLabel  resultLabel;
-    private JLabel  winnerLabel;
-    private JLabel  marsLabel;
-    private JLabel  statusLabel;   // "Rakip bekleniyor..." mesajı
-    private JButton playAgainButton;
-    private JButton menuButton;
-
     private final Image backgroundImage;
+
+    private JLabel titleLabel, resultLabel, marsLabel, winnerLabel, statusLabel;
+    private JButton playAgainButton;
 
     public EndScreenPanel(ScreenManager screenManager) {
         this.screenManager = screenManager;
-        // Classpath'ten yükle — JAR içinde de çalışır
-        java.net.URL imgUrl = getClass().getResource("/images/arkaplanfoto.jpg");
-        backgroundImage = (imgUrl != null) ? new ImageIcon(imgUrl).getImage() : null;
+        java.net.URL url = getClass().getResource("/images/arkaplanfoto.jpg");
+        backgroundImage = (url != null) ? new ImageIcon(url).getImage() : null;
         initUI();
     }
 
@@ -47,49 +41,21 @@ public class EndScreenPanel extends JPanel {
         setLayout(new GridBagLayout());
         setOpaque(false);
 
-        RoundedPanel contentPanel = new RoundedPanel(28);
-        contentPanel.setOpaque(false);
-        Color coffeeTone = new Color(111, 78, 55, 180); // Kahve tonu, hafif transparan
-        contentPanel.setBackgroundColor(coffeeTone);
-        contentPanel.setBorderColor(coffeeTone);
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBorder(new EmptyBorder(40, 90, 40, 90));
-        contentPanel.setPreferredSize(new Dimension(590, 480));
+        RoundedPanel content = new RoundedPanel(28);
+        content.setOpaque(false);
+        content.setBackgroundColor(new Color(111, 78, 55, 180));
+        content.setBorderColor(new Color(111, 78, 55, 180));
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBorder(new EmptyBorder(40, 90, 40, 90));
+        content.setPreferredSize(new Dimension(590, 480));
 
-        titleLabel = new JLabel("OYUN BİTTİ");
-        titleLabel.setFont(new Font("Georgia", Font.BOLD, 40));
-        titleLabel.setForeground(new Color(245, 230, 210));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        titleLabel = centeredLabel("OYUN BİTTİ", new Font("Georgia", Font.BOLD, 40), new Color(245, 230, 210));
+        resultLabel = centeredLabel(" ", new Font("Georgia", Font.BOLD, 30), new Color(100, 255, 100));
+        marsLabel = centeredLabel(" ", new Font("Georgia", Font.BOLD, 22), new Color(255, 180, 50));
+        winnerLabel = centeredLabel(" ", new Font("Arial", Font.BOLD, 19), new Color(245, 230, 210));
+        statusLabel = centeredLabel(" ", new Font("Arial", Font.ITALIC, 14), new Color(230, 200, 170));
 
-        resultLabel = new JLabel(" ");
-        resultLabel.setFont(new Font("Georgia", Font.BOLD, 30));
-        resultLabel.setForeground(new Color(100, 255, 100));
-        resultLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Mars etiketi — sadece mars olduğunda görünür
-        marsLabel = new JLabel(" ");
-        marsLabel.setFont(new Font("Georgia", Font.BOLD, 22));
-        marsLabel.setForeground(new Color(255, 180, 50));
-        marsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        winnerLabel = new JLabel(" ");
-        winnerLabel.setFont(new Font("Arial", Font.BOLD, 19));
-        winnerLabel.setForeground(new Color(245, 230, 210));
-        winnerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Rematch bekleme mesajı
-        statusLabel = new JLabel(" ");
-        statusLabel.setFont(new Font("Arial", Font.ITALIC, 14));
-        statusLabel.setForeground(new Color(230, 200, 170));
-        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        playAgainButton = createStyledButton(
-                "Tekrar Oyna",
-                new Color(35, 145, 65),
-                new Color(25, 115, 50),
-                new Color(55, 170, 85)
-        );
-        // Bağlantıyı kesmeden sunucuya rematch isteği gönder
+        playAgainButton = styledButton("Tekrar Oyna", new Color(35, 145, 65), new Color(25, 115, 50), new Color(55, 170, 85));
         playAgainButton.addActionListener(e -> {
             SoundManager.getInstance().playButtonClick();
             playAgainButton.setEnabled(false);
@@ -97,140 +63,127 @@ public class EndScreenPanel extends JPanel {
             screenManager.requestRematch();
         });
 
-        menuButton = createStyledButton(
-                "Ana Menü",
-                new Color(185, 55, 45),
-                new Color(145, 35, 30),
-                new Color(210, 70, 60)
-        );
-        // Ana menü: bağlantıyı kes ve başa dön
+        JButton menuButton = styledButton("Ana Menü", new Color(185, 55, 45), new Color(145, 35, 30), new Color(210, 70, 60));
         menuButton.addActionListener(e -> {
             SoundManager.getInstance().playButtonClick();
             screenManager.showStartScreen();
         });
 
-        contentPanel.add(titleLabel);
-        contentPanel.add(Box.createVerticalStrut(20));
-        contentPanel.add(resultLabel);
-        contentPanel.add(Box.createVerticalStrut(8));
-        contentPanel.add(marsLabel);
-        contentPanel.add(Box.createVerticalStrut(10));
-        contentPanel.add(winnerLabel);
-        contentPanel.add(Box.createVerticalStrut(16));
-        contentPanel.add(statusLabel);
-        contentPanel.add(Box.createVerticalStrut(30));
+        JPanel buttons = new JPanel();
+        buttons.setOpaque(false);
+        buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
+        buttons.add(playAgainButton);
+        buttons.add(Box.createHorizontalStrut(20));
+        buttons.add(menuButton);
 
-        JPanel buttonPanel = new JPanel();
-        buttonPanel.setLayout(new BoxLayout(buttonPanel, BoxLayout.X_AXIS));
-        buttonPanel.setOpaque(false);
-        buttonPanel.add(playAgainButton);
-        buttonPanel.add(Box.createHorizontalStrut(20));
-        buttonPanel.add(menuButton);
-
-        contentPanel.add(buttonPanel);
-
-        add(contentPanel);
+        content.add(titleLabel);
+        content.add(Box.createVerticalStrut(20));
+        content.add(resultLabel);
+        content.add(Box.createVerticalStrut(8));
+        content.add(marsLabel);
+        content.add(Box.createVerticalStrut(10));
+        content.add(winnerLabel);
+        content.add(Box.createVerticalStrut(16));
+        content.add(statusLabel);
+        content.add(Box.createVerticalStrut(30));
+        content.add(buttons);
+        add(content);
     }
 
-   
-    public void setResult(String winnerName, boolean isLocalWinner,
-                          boolean isMars, int winnerWins) {
-        // Tekrar oyna butonunu sıfırla
+    private JLabel centeredLabel(String text, Font font, Color color) {
+        JLabel l = new JLabel(text);
+        l.setFont(font);
+        l.setForeground(color);
+        l.setAlignmentX(CENTER_ALIGNMENT);
+        return l;
+    }
+
+    //Oyun sonucuna göre kazandın/kaybettin/mars mesajlarını ekrana yazar
+    public void setResult(String winnerName, boolean isLocalWinner, boolean isMars, int winnerWins) {
         playAgainButton.setEnabled(true);
         statusLabel.setText(" ");
-
+        titleLabel.setText(isMars ? "MARS!" : "OYUN BİTTİ");
         if (isLocalWinner) {
-            if (isMars) {
-                resultLabel.setText("Tebrikler,Kazandın!");
-                resultLabel.setForeground(new Color(255, 200, 50));
-                marsLabel.setText(" Mars! +2 Galibiyet");
-                titleLabel.setText("MARS!");
-            } else {
-                resultLabel.setText("Tebrikler, Kazandın!");
-                resultLabel.setForeground(new Color(100, 255, 100));
-                marsLabel.setText(" ");
-                titleLabel.setText("OYUN BİTTİ");
-            }
+            resultLabel.setText("Tebrikler, Kazandın!");
+            resultLabel.setForeground(isMars ? new Color(255, 200, 50) : new Color(100, 255, 100));
+            marsLabel.setText(isMars ? " Mars! +2 Galibiyet" : " ");
         } else {
-            if (isMars) {
-                resultLabel.setText("Mars oldun!");
-                resultLabel.setForeground(new Color(255, 100, 100));
-                marsLabel.setText("Rakip +2 galibiyet aldı");
-                titleLabel.setText("MARS!");
-            } else {
-                resultLabel.setText("Kaybettin");
-                resultLabel.setForeground(new Color(255, 100, 100));
-                marsLabel.setText(" ");
-                titleLabel.setText("OYUN BİTTİ");
-            }
+            resultLabel.setText(isMars ? "Mars oldun!" : "Kaybettin");
+            resultLabel.setForeground(new Color(255, 100, 100));
+            marsLabel.setText(isMars ? "Rakip +2 galibiyet aldı" : " ");
         }
-
         winnerLabel.setText(" KAZANAN : " + winnerName.toUpperCase());
     }
 
-    
     public void showWaitingForRematch() {
         playAgainButton.setEnabled(false);
         statusLabel.setText("Rakip bekleniyor...");
     }
 
-    
     public void showWaitingForOpponent() {
         statusLabel.setText("Rakip tekrar oynamak istiyor!");
     }
 
-   
-    private JButton createStyledButton(String text, Color normalColor,
-                                       Color borderColor, Color hoverColor) {
-        JButton button = new RoundedButton(text, 20);
-        button.setFont(new Font("Arial", Font.BOLD, 17));
-        button.setForeground(Color.WHITE);
-        button.setBackground(normalColor);
-        button.setOpaque(false);
-        button.setContentAreaFilled(false);
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        button.setMaximumSize(new Dimension(260, 50));
-        button.setPreferredSize(new Dimension(260, 50));
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        ((RoundedButton) button).setButtonColor(normalColor);
-        ((RoundedButton) button).setBorderColor(borderColor);
-
-        button.addMouseListener(new MouseAdapter() {
-            @Override public void mouseEntered(MouseEvent e) {
-                ((RoundedButton) button).setButtonColor(hoverColor);
-                button.setFont(new Font("Arial", Font.BOLD, 18));
-                button.repaint();
+    private JButton styledButton(String text, Color normal, Color border, Color hover) {
+        RoundedButton btn = new RoundedButton(text, 20);
+        btn.setFont(new Font("Arial", Font.BOLD, 17));
+        btn.setForeground(Color.WHITE);
+        btn.setOpaque(false);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setAlignmentX(CENTER_ALIGNMENT);
+        btn.setMaximumSize(new Dimension(260, 50));
+        btn.setPreferredSize(new Dimension(260, 50));
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btn.setButtonColor(normal);
+        btn.setBorderColor(border);
+        btn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                btn.setButtonColor(hover);
+                btn.setFont(new Font("Arial", Font.BOLD, 18));
+                btn.repaint();
             }
-            @Override public void mouseExited(MouseEvent e) {
-                ((RoundedButton) button).setButtonColor(normalColor);
-                button.setFont(new Font("Arial", Font.BOLD, 17));
-                button.repaint();
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                btn.setButtonColor(normal);
+                btn.setFont(new Font("Arial", Font.BOLD, 17));
+                btn.repaint();
             }
         });
-        return button;
+        return btn;
     }
 
-  
     private static class RoundedPanel extends JPanel {
+
         private final int radius;
-        private Color backgroundColor;
-        private Color borderColor;
+        private Color bg, border;
 
-        public RoundedPanel(int radius) { this.radius = radius; setOpaque(false); }
-        public void setBackgroundColor(Color c) { this.backgroundColor = c; }
-        public void setBorderColor(Color c)     { this.borderColor = c; }
+        RoundedPanel(int r) {
+            this.radius = r;
+            setOpaque(false);
+        }
 
-        @Override protected void paintComponent(Graphics g) {
+        void setBackgroundColor(Color c) {
+            bg = c;
+        }
+
+        void setBorderColor(Color c) {
+            border = c;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(new Color(0, 0, 0, 80));
             g2.fillRoundRect(8, 8, getWidth() - 16, getHeight() - 16, radius, radius);
-            g2.setColor(backgroundColor);
+            g2.setColor(bg);
             g2.fillRoundRect(0, 0, getWidth() - 12, getHeight() - 12, radius, radius);
             g2.setStroke(new BasicStroke(3));
-            g2.setColor(borderColor);
+            g2.setColor(border);
             g2.drawRoundRect(1, 1, getWidth() - 15, getHeight() - 15, radius, radius);
             g2.dispose();
             super.paintComponent(g);
@@ -238,20 +191,31 @@ public class EndScreenPanel extends JPanel {
     }
 
     private static class RoundedButton extends JButton {
+
         private final int radius;
-        private Color buttonColor;
-        private Color borderColor;
+        private Color btnColor, borderColor;
 
-        public RoundedButton(String text, int radius) { super(text); this.radius = radius; setOpaque(false); }
-        public void setButtonColor(Color c) { this.buttonColor = c; }
-        public void setBorderColor(Color c) { this.borderColor = c; }
+        RoundedButton(String text, int r) {
+            super(text);
+            this.radius = r;
+            setOpaque(false);
+        }
 
-        @Override protected void paintComponent(Graphics g) {
+        void setButtonColor(Color c) {
+            btnColor = c;
+        }
+
+        void setBorderColor(Color c) {
+            borderColor = c;
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(new Color(0, 0, 0, 95));
             g2.fillRoundRect(5, 6, getWidth() - 10, getHeight() - 10, radius, radius);
-            g2.setColor(buttonColor);
+            g2.setColor(btnColor);
             g2.fillRoundRect(0, 0, getWidth() - 8, getHeight() - 8, radius, radius);
             g2.setStroke(new BasicStroke(2));
             g2.setColor(borderColor);

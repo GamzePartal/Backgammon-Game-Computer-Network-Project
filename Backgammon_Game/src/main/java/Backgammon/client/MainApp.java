@@ -1,49 +1,35 @@
 package Backgammon.client;
+
 import javax.swing.*;
 import java.awt.*;
- 
 
-
+//Uygulamayı başlatır ana pencereyi oluşturur ScreenManager nesnesini kurar ve başlangıç ekranını gösterir
+//arka plan müziğini başlatır
 public class MainApp {
-    // Uygulama penceresi başlığı
-    private static final String WINDOW_TITLE  = "Tavla - Çok Oyunculu";
- 
-    // Pencere genişliği (piksel): tahta (820) + sağ panel (220) + kenar boşlukları
-    private static final int    WINDOW_WIDTH  = 1080;
- 
-    // Pencere yüksekliği (piksel)
-    private static final int    WINDOW_HEIGHT = 660;
- 
+
+    private static final String TITLE = "Tavla - Cok Oyunculu";
+    private static final int WIDTH = 1080;
+    private static final int HEIGHT = 660;
+
     public static void main(String[] args) {
-        // Tüm Swing bileşenleri EDT üzerinde oluşturulmalıdır
         SwingUtilities.invokeLater(() -> {
             try {
-                // İşletim sisteminin yerel görünümünü kullan (Windows/macOS/Linux)
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception e) {
-                // Sistem görünümü yüklenemezse varsayılan Swing görünümü kullanılır
-                System.err.println("Look&Feel yüklenemedi: " + e.getMessage());
+                System.err.println("Look&Feel yuklenemedi: " + e.getMessage());
             }
- 
-            // Ana pencereyi oluştur
-            JFrame frame = new JFrame(WINDOW_TITLE);
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-            frame.setMinimumSize(new Dimension(900, 600));
-            frame.setLocationRelativeTo(null); // Ekranın ortasına konumlandır
-            frame.setResizable(true);
- 
-            // Ekran yöneticisini oluştur ve ana paneli frame'e ekle
-            ScreenManager screenManager = new ScreenManager(frame);
-            frame.setContentPane(screenManager.getMainPanel());
- 
-            // Pencereyi görünür yap
-            frame.setVisible(true);
 
-            // Uygulama açılır açılmaz arkaplan müziğini başlat (start screen'den itibaren)
+            JFrame frame = new JFrame(TITLE);
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setSize(WIDTH, HEIGHT);
+            frame.setMinimumSize(new Dimension(900, 600));
+            frame.setLocationRelativeTo(null);
+            frame.setResizable(true);
+
+            ScreenManager sm = new ScreenManager(frame);
+            frame.setContentPane(sm.getMainPanel());
+            frame.setVisible(true);
             SoundManager.getInstance().playBackground();
- 
-            System.out.println("[UYGULAMA] Tavla istemcisi başlatıldı.");
         });
     }
 }

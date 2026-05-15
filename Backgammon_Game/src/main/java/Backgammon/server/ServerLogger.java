@@ -3,10 +3,9 @@ package Backgammon.server;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-//Sunucu tarafındaki konsol log işlemlerini yöneten yardımcı sınıf
+//server tarafındaki log mesajlarını düzenli ve renkli şekilde konsola yazdırır
 public class ServerLogger {
 
-    // Konsol renk kodları (ANSI escape kodları - Linux/Mac terminallerde desteklenir)
     private static final String RESET = "\u001B[0m";
     private static final String GREEN = "\u001B[32m";
     private static final String RED = "\u001B[31m";
@@ -14,59 +13,45 @@ public class ServerLogger {
     private static final String CYAN = "\u001B[36m";
     private static final String BLUE = "\u001B[34m";
 
-    // Zaman damgası formatı: [GG.AA.YYYY SS:DD:SS]
-    private static final DateTimeFormatter FORMATTER
+    
+    private static final DateTimeFormatter FMT
             = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm:ss");
 
-    // genel bilgi mesajlarını yeşil renkte konsola yazar bağlantı başlangıc vs
-    public static void log(String message) {
-        System.out.println(GREEN + "[INFO]  " + getTimestamp() + " " + message + RESET);
+    //Güncel tarih ve saati formatlı string olarak döndürür.
+    private static String ts() {
+        return LocalDateTime.now().format(FMT);
     }
 
-    //hata mesjalarını yazdırır bağlantı kopması geçersiz mesaj vs
-    public static void logError(String message) {
-        System.err.println(RED + "[HATA]  " + getTimestamp() + " " + message + RESET);
+    public static void log(String msg) {
+        System.out.println(GREEN + "[INFO]  " + ts() + " " + msg + RESET);
     }
 
-    //uyarı mesajını konsola yazdırır 
-    public static void logWarning(String message) {
-        System.out.println(YELLOW + "[UYARI] " + getTimestamp() + " " + message + RESET);
+    public static void logError(String msg) {
+        System.err.println(RED + "[HATA]  " + ts() + " " + msg + RESET);
     }
 
-    //oyun odasına ait değişikleri yazdırır tur değişimi, hamle, zar gibi
+    public static void logWarning(String msg) {
+        System.out.println(YELLOW + "[UYARI] " + ts() + " " + msg + RESET);
+    }
+
     public static void logGame(String roomId, String event) {
-        System.out.println(BLUE + "[OYUN]  " + getTimestamp() + " [Oda:" + roomId + "] " + event + RESET);
+        System.out.println(BLUE + "[OYUN]  " + ts() + " [Oda:" + roomId + "] " + event + RESET);
     }
 
-   
-    // ağ bağlantısıyla ilgili olayları yazdırır client bağlantısı,kopması vs 
-    public static void logNetwork(String message) {
-        System.out.println(CYAN + "[AG]    " + getTimestamp() + " " + message + RESET);
+    //Ağ bağlantısı ile ilgili mesajları loglar
+    public static void logNetwork(String msg) {
+        System.out.println(CYAN + "[AG]    " + ts() + " " + msg + RESET);
     }
 
-    
-    // sunucunun başarıyla başladığını kullancııya gösterir
+    //Server başlatıldığında port ve tarih bilgisini yazar
     public static void logStartup(int port) {
-        System.out.println(GREEN);
-        System.out.println(" TAVLA SUNUCUSU BASLATILIYOR ");
-        System.out.println("");
-        System.out.println(" Port    : " + port + " ");
-        System.out.println(" Tarih   : " + getTimestamp());
-        System.out.println(" Durum   : Baglanti bekleniyor");
-        System.out.println("");
-        System.out.println(RESET);
+        System.out.println(GREEN + "\n TAVLA SUNUCUSU BASLATILIYOR\n"
+                + " Port  : " + port + "\n Tarih : " + ts()
+                + "\n Durum : Baglanti bekleniyor\n" + RESET);
     }
 
-    
-    //sunucu kapatıldığında konsola yazdırı
+    //Server kapatılırken kapanış mesajı yazar
     public static void logShutdown() {
         System.out.println(RED + "\n[KAPANIS] Sunucu kapatiliyor" + RESET);
     }
-
-    
-    //tarih saat string olarak döndürür
-    private static String getTimestamp() {
-        return LocalDateTime.now().format(FORMATTER);
-    }
-
 }
